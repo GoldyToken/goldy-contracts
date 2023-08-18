@@ -6,8 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract GoldyToken is ERC20 {
 
     address private minter;
-    constructor(string memory name, string memory symbol) {
-        ERC20(name, symbol);
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
         _mint(msg.sender, 8500);
         minter = msg.sender;
     }
