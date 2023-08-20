@@ -7,7 +7,7 @@ contract GoldyToken is ERC20 {
 
     address private minter;
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {
-        _mint(msg.sender, 8500);
+        _mint(msg.sender, 8500 * 1e18);
         minter = msg.sender;
     }
 
