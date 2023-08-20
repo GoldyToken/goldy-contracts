@@ -29,7 +29,7 @@ contract GoldyPriceOracle {
     // return the value of 0.01% ounce gold price in dollar in 18 decimals
     function getGoldyUsdPrice() external view returns (uint) {
         (, int256 price, , , ) = AggregatorV3Interface(xauUsdOraclePair).latestRoundData();
-        return uint256(price) / 1e4;
+        return (uint256(price) * 1e5) / 1097140000;
     }
 
     // return the value of 1 ounce gold price in dollar in 18 decimals
@@ -44,7 +44,7 @@ contract GoldyPriceOracle {
         return (uint256(price) * 1e4) / 283495;
     }
 
-    // return the value of 1 gram gold price in dollar in 18 decimals
+    // return the value of 1 troy ounce gold price in dollar in 18 decimals
     function getGoldTroyOunceUsdPrice() external view returns (uint) {
         (, int256 price, , , ) = AggregatorV3Interface(xauUsdOraclePair).latestRoundData();
         return uint256(price);
@@ -57,7 +57,7 @@ contract GoldyPriceOracle {
     // return the value of 0.01% ounce gold price in euro in 18 decimals
     function getGoldyEuroPrice() external view returns (uint) {
         int256 price = getDerivedPrice(xauUsdOraclePair, eurUsdOraclePair, 18);
-        return uint256(price) / 10000;
+        return (uint256(price) * 1e5) / 1097140000;
     }
 
     // return the value of 1 ounce gold price in euro in 18 decimals
@@ -72,7 +72,7 @@ contract GoldyPriceOracle {
         return (uint256(price) * 1e4) / 283495;
     }
 
-    // return the value of 1 gram gold price in euro in 18 decimals
+    // return the value of 1 troy ounce price in euro in 18 decimals
     function getGoldTroyOunceEuroPrice() external view returns (uint) {
         int256 price = getDerivedPrice(xauUsdOraclePair, eurUsdOraclePair, 18);
         return uint256(price);
@@ -85,7 +85,7 @@ contract GoldyPriceOracle {
     // return the value of 0.01% ounce gold price in british pounds in 18 decimals
     function getGoldyGbpPrice() external view returns (uint) {
         int256 price = getDerivedPrice(xauUsdOraclePair, gbpUsdOraclePair, 18);
-        return (uint256(price) * 1e5) / 109714;
+        return (uint256(price) * 1e5) / 1097140000;
     }
 
     // return the value of 1 ounce gold price in british pounds in 18 decimals
@@ -100,7 +100,7 @@ contract GoldyPriceOracle {
         return (uint256(price) * 1e4) / 283495;
     }
 
-    // return the value of 1 gram gold price in british pounds in 18 decimals
+    // return the value of 1 troy ounce price in british pounds in 18 decimals
     function getGoldTroyOunceGbpPrice() external view returns (uint) {
         int256 price = getDerivedPrice(xauUsdOraclePair, gbpUsdOraclePair, 18);
         return uint256(price);
