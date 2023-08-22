@@ -9,7 +9,7 @@ async function main() {
     // await hre.run('compile');
 
     // We get the contract to deploy
-    const goldyToken = await ethers.deployContract("GoldyToken", ['Goldy', 'GLD']);
+    const goldyToken = await ethers.deployContract("GoldyToken", ['GOLDY', 'GOLDY']);
 
     await goldyToken.waitForDeployment();
 
