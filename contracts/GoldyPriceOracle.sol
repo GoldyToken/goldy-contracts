@@ -16,14 +16,17 @@ contract GoldyPriceOracle {
     address public usdcUsdOraclePair;
     // chain link pair to fetch price USDT/USD
     address public usdtUsdOraclePair;
+    // chain link pair to fetch price ETH/USD
+    address public ethUsdOraclePair;
 
 
-    constructor(address _xauUsdOraclePair, address _eurUsdOraclePair, address _gbpUsdOraclePair, address _usdcUsdOraclePair, address _usdtUsdOraclePair) {
+    constructor(address _xauUsdOraclePair, address _eurUsdOraclePair, address _gbpUsdOraclePair, address _usdcUsdOraclePair, address _usdtUsdOraclePair, address _ethUsdOraclePair) {
         xauUsdOraclePair = _xauUsdOraclePair;
         eurUsdOraclePair = _eurUsdOraclePair;
         gbpUsdOraclePair = _gbpUsdOraclePair;
         usdcUsdOraclePair = _usdcUsdOraclePair;
         usdtUsdOraclePair = _usdtUsdOraclePair;
+        ethUsdOraclePair = _ethUsdOraclePair;
     }
 
     // return the value of 0.01% ounce gold price in dollar in 18 decimals
@@ -157,6 +160,34 @@ contract GoldyPriceOracle {
     // return the value of 1 troy ounce price in british pounds in 18 decimals
     function getGoldTroyOunceUSDTPrice() external view returns (uint) {
         int256 price = getDerivedPrice(xauUsdOraclePair, usdtUsdOraclePair, 18);
+        return uint256(price);
+    }
+
+    /*
+    eth prices functions
+*/
+
+    // return the value of 0.01% ounce gold price in british pounds in 18 decimals
+    function getGoldyETHPrice() external view returns (uint) {
+        int256 price = getDerivedPrice(xauUsdOraclePair, ethUsdOraclePair, 18);
+        return (uint256(price) * 1e4);
+    }
+
+    // return the value of 1 ounce gold price in british pounds in 18 decimals
+    function getGoldOunceETHPrice() external view returns (uint) {
+        int256 price = getDerivedPrice(xauUsdOraclePair, ethUsdOraclePair, 18);
+        return uint256(price);
+    }
+
+    // return the value of 1 gram gold price in british pounds in 18 decimals
+    function getGoldGramETHPrice() external view returns (uint) {
+        int256 price = getDerivedPrice(xauUsdOraclePair, ethUsdOraclePair, 18);
+        return (uint256(price) * 1e7) / 311034768;
+    }
+
+    // return the value of 1 troy ounce price in british pounds in 18 decimals
+    function getGoldTroyOunceETHPrice() external view returns (uint) {
+        int256 price = getDerivedPrice(xauUsdOraclePair, ethUsdOraclePair, 18);
         return uint256(price);
     }
 
