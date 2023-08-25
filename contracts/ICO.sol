@@ -10,10 +10,11 @@ contract ICO {
     // supported buy currency
     enum Currency {
         USDC ,
-        USDT
+        USDT ,
+        ETH  ,
+        EUROC
     }
-    Currency private defaultCurrency;
-    address private defaultCurrencyAddress;
+    mapping (Currency => address) public currencyAddresses;
     address private owner;
     Counters.Counter private _saleTracker; // sale tracker
     address public goldyOracle;
@@ -28,11 +29,12 @@ contract ICO {
 
     mapping (uint => Sale) public sales;
 
-    constructor(address _goldyOracle, address _defaultCurrencyAddress) {
+    constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
         owner = msg.sender;
         goldyOracle = _goldyOracle;
-        defaultCurrencyAddress = _defaultCurrencyAddress;
-        defaultCurrency = Currency.USDC;
+        currencyAddresses[Currency.EUROC] = _euroc;
+        currencyAddresses[Currency.USDC] = _usdc;
+        currencyAddresses[Currency.USDT] = _usdt;
     }
 
     modifier onlyOwner () {
@@ -50,7 +52,16 @@ contract ICO {
 
     }
 
-    function buyToken(uint amount) external {
+    function buyToken (uint amount, Currency _currency) external {
+        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
+        _buyToken(amount, _currency);
+    }
+
+    function buyTokenPayable () external payable {
+        _buyToken(msg.value, Currency.ETH);
+    }
+
+    function _buyToken(uint amount, Currency _currency) internal {
         require(amount > 0 && _saleTracker.current() > 0, 'G1'); // either amount is less than 0 or sale not started
         Sale storage sale = sales[_saleTracker.current() - 1];
         require(block.timestamp >= sale.startDate && block.timestamp <= sale.endDate, 'G2'); // either sale not started or ended
@@ -58,18 +69,22 @@ contract ICO {
         sale.soldToken += amount;
         IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
         uint price;
-        IERC20(defaultCurrencyAddress).transferFrom(msg.sender, address(this), amount);
-        if (defaultCurrency == Currency.USDC) {
+        if (Currency.USDC == _currency) {
             price = goldyPriceOracle.getGoldyUSDCPrice();
             IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
-        } else if (defaultCurrency == Currency.USDT) {
+        } else if (Currency.USDT == _currency) {
             price = goldyPriceOracle.getGoldyUSDTPrice();
+            IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
+        } else if (Currency.EUROC == _currency) {
+            price = goldyPriceOracle.getGoldyEuroPrice();
+            IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
+        } else if (Currency.ETH == _currency) {
+            price = goldyPriceOracle.getGoldyETHPrice();
             IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
         }
     }
 
-    function changeDefaultCurrency (Currency _defaultCurrency, address _defaultCurrencyAddress) external onlyOwner {
-        defaultCurrency = _defaultCurrency;
-        defaultCurrencyAddress = _defaultCurrencyAddress;
+    function getCurrentSaleDetails() external view returns (Sale memory) {
+        return sales[_saleTracker.current() - 1];
     }
 }

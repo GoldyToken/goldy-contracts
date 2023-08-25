@@ -28,4 +28,9 @@ interface IGoldyPriceOracle {
     function getGoldGramUSDTPrice() external view returns (uint);
     function getGoldTroyOunceUSDTPrice() external view returns (uint);
 
+    function getGoldyETHPrice() external view returns (uint);
+    function getGoldOunceETHPrice() external view returns (uint);
+    function getGoldGramETHPrice() external view returns (uint);
+    function getGoldTroyOunceETHPrice() external view returns (uint);
+
 }
