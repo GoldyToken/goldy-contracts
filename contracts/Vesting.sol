@@ -19,9 +19,10 @@ contract Vesting {
         IERC20 token;
     }
 
-    Counters.Counter private _vestingPoolIdTracker;
+    Counters.Counter public _vestingPoolIdTracker;
     mapping (uint => VestingPool) public vestingPools;
     mapping (address => uint[]) public vestingIds;
+    uint public totalVestedTokenAmount;
 
     modifier onlyOwner(uint vestingPoolId) {
         VestingPool memory vestingPool = vestingPools[vestingPoolId];
@@ -96,7 +97,7 @@ contract Vesting {
         _withdraw(vestingPoolIdToAssign);
         // store all vesting pool ids against user address
         vestingIds[user].push(vestingPoolIdToAssign);
-
+        totalVestedTokenAmount += amount;
         return vestingPoolIdToAssign;
     }
 

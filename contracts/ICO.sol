@@ -66,25 +66,34 @@ contract ICO {
         Sale storage sale = sales[_saleTracker.current() - 1];
         require(block.timestamp >= sale.startDate && block.timestamp <= sale.endDate, 'G2'); // either sale not started or ended
         require((sale.soldToken + amount) <= sale.maximumToken, 'G3'); // maximum token sale reach
-        sale.soldToken += amount;
         IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
-        uint price;
+        uint transferAmount;
         if (Currency.USDC == _currency) {
-            price = goldyPriceOracle.getGoldyUSDCPrice();
-            IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDCPrice(), amount);
+            IERC20(sale.token).transfer(msg.sender, transferAmount);
         } else if (Currency.USDT == _currency) {
-            price = goldyPriceOracle.getGoldyUSDTPrice();
-            IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDTPrice(), amount);
+            IERC20(sale.token).transfer(msg.sender, transferAmount);
         } else if (Currency.EUROC == _currency) {
-            price = goldyPriceOracle.getGoldyEuroPrice();
-            IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), amount);
+            IERC20(sale.token).transfer(msg.sender, transferAmount);
         } else if (Currency.ETH == _currency) {
-            price = goldyPriceOracle.getGoldyETHPrice();
-            IERC20(sale.token).transfer(msg.sender, (1e18 * amount) / price);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount);
+            IERC20(sale.token).transfer(msg.sender, transferAmount);
         }
+        sale.soldToken += transferAmount;
+    }
+
+    function _calculateTransferAmount(uint price, uint amount) internal pure returns (uint) {
+        return (1e18 * amount) / price;
     }
 
     function getCurrentSaleDetails() external view returns (Sale memory) {
         return sales[_saleTracker.current() - 1];
+    }
+
+    function updateMaxToken(uint _maxToken) external onlyOwner {
+        Sale storage sale = sales[_saleTracker.current() - 1];
+        sale.maximumToken = _maxToken;
     }
 }
