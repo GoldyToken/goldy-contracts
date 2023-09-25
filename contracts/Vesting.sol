@@ -23,10 +23,21 @@ contract Vesting {
     mapping (uint => VestingPool) public vestingPools;
     mapping (address => uint[]) public vestingIds;
     uint public totalVestedTokenAmount;
+    bool public isVestingActive;
+    address public owner;
+
+    constructor() {
+        owner = msg.sender;
+    }
 
     modifier onlyOwner(uint vestingPoolId) {
         VestingPool memory vestingPool = vestingPools[vestingPoolId];
         require(msg.sender == vestingPool.user, 'VS:100'); //Vesting: only owner is allowed to withdraw
+        _;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == owner, 'Only Admin');
         _;
     }
 
@@ -130,6 +141,10 @@ contract Vesting {
 
     function getUserVestingPoolIds (address _user) external view returns (uint[] memory) {
         return vestingIds[_user];
+    }
+
+    function toggleVestingStatus() external onlyAdmin {
+        isVestingActive = !isVestingActive;
     }
 
 }
