@@ -25,10 +25,11 @@ contract ICO {
         uint endDate; // timestamp end date
         uint maximumToken; // max token for sale
         uint soldToken; // sold token count
+        bool isActive; // Current state of sale
     }
 
     mapping (uint => Sale) public sales;
-
+    bool public isAmlActive;
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
         owner = msg.sender;
         goldyOracle = _goldyOracle;
@@ -96,4 +97,14 @@ contract ICO {
         Sale storage sale = sales[_saleTracker.current() - 1];
         sale.maximumToken = _maxToken;
     }
+
+    function toggleSaleStatus() external onlyOwner {
+        Sale storage sale = sales[_saleTracker.current() - 1];
+        sale.isActive = !sale.isActive;
+    }
+
+    function toggleAmlStatus() external onlyOwner {
+        isAmlActive = !isAmlActive;
+    }
+
 }
