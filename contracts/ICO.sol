@@ -59,11 +59,13 @@ contract ICO {
     }
 
     function buyToken (uint amount, Currency _currency) external {
+        require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         _buyToken(amount, _currency);
     }
 
     function buyTokenPayable () external payable {
+        require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
         _buyToken(msg.value, Currency.ETH);
     }
 
