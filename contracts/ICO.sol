@@ -26,10 +26,12 @@ contract ICO {
         uint maximumToken; // max token for sale
         uint soldToken; // sold token count
         bool isActive; // Current state of sale
+        bool isAmlActive; // Aml Active state
+        uint amlCheck; // aml check state
     }
 
     mapping (uint => Sale) public sales;
-    bool public isAmlActive;
+
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
         owner = msg.sender;
         goldyOracle = _goldyOracle;
@@ -42,13 +44,16 @@ contract ICO {
         require(msg.sender == owner, 'Only Admin');
         _;
     }
-    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken) external {
+    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external {
 
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
         sale.startDate = _startDate;
         sale.endDate = _endDate;
         sale.maximumToken = _maximumToken;
+        sale.isActive = true;
+        sale.isAmlActive = _isAmlActive;
+        sale.amlCheck = _amlCheck;
         _saleTracker.increment();
 
     }
@@ -104,7 +109,12 @@ contract ICO {
     }
 
     function toggleAmlStatus() external onlyOwner {
-        isAmlActive = !isAmlActive;
+        Sale storage sale = sales[_saleTracker.current() - 1];
+        sale.isAmlActive = !sale.isAmlActive;
+    }
+    function updateAmlCheck(uint _amlCheck) external onlyOwner {
+        Sale storage sale = sales[_saleTracker.current() - 1];
+        sale.amlCheck = _amlCheck;
     }
 
 }
