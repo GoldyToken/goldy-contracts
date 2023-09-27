@@ -32,6 +32,7 @@ contract ICO {
 
     mapping (uint => Sale) public sales;
 
+    event BuyToken (address indexed user, address currency, uint amount, uint goldyAmount, bool aml, bytes32 message);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
         owner = msg.sender;
         goldyOracle = _goldyOracle;
@@ -61,15 +62,26 @@ contract ICO {
     function buyToken (uint amount, Currency _currency) external {
         require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
-        _buyToken(amount, _currency);
+        _buyToken(amount, _currency, false, bytes32(0));
     }
 
     function buyTokenPayable () external payable {
         require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
-        _buyToken(msg.value, Currency.ETH);
+        _buyToken(msg.value, Currency.ETH, false, bytes32(0));
     }
 
-    function _buyToken(uint amount, Currency _currency) internal {
+    function verifiedBuyToken (bytes32 _hashedMessage, uint8 _v, bytes32 _r, bytes32 _s, uint amount, Currency _currency) external {
+        require(verifyMessage(_hashedMessage, _v, _r, _s, msg.sender), 'invalid user');
+        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
+        _buyToken(amount, _currency, true, _hashedMessage);
+    }
+
+    function verifiedBuyTokenPayable (bytes32 _hashedMessage, uint8 _v, bytes32 _r, bytes32 _s) external payable {
+        require(verifyMessage(_hashedMessage, _v, _r, _s, msg.sender), 'invalid user');
+        _buyToken(msg.value, Currency.ETH, true, _hashedMessage);
+    }
+
+    function _buyToken(uint amount, Currency _currency, bool aml, bytes32 message) internal {
         require(amount > 0 && _saleTracker.current() > 0, 'G1'); // either amount is less than 0 or sale not started
         Sale storage sale = sales[_saleTracker.current() - 1];
         require(block.timestamp >= sale.startDate && block.timestamp <= sale.endDate, 'G2'); // either sale not started or ended
@@ -90,6 +102,7 @@ contract ICO {
             IERC20(sale.token).transfer(msg.sender, transferAmount);
         }
         sale.soldToken += transferAmount;
+        emit BuyToken(msg.sender, address(0), amount, transferAmount, aml, message);
     }
 
     function _calculateTransferAmount(uint price, uint amount) internal pure returns (uint) {
@@ -119,4 +132,10 @@ contract ICO {
         sale.amlCheck = _amlCheck;
     }
 
+    function verifyMessage(bytes32 _hashedMessage, uint8 _v, bytes32 _r, bytes32 _s, address user) public pure returns (bool) {
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 prefixedHashMessage = keccak256(abi.encodePacked(prefix, _hashedMessage));
+        address signer = ecrecover(prefixedHashMessage, _v, _r, _s);
+        return user == signer;
+    }
 }
