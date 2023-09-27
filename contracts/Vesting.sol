@@ -28,6 +28,7 @@ contract Vesting {
 
     constructor() {
         owner = msg.sender;
+        isVestingActive = true;
     }
 
     modifier onlyOwner(uint vestingPoolId) {
@@ -82,6 +83,7 @@ contract Vesting {
 
     function create(uint32 period, uint32 cliff, uint16 periodBP, uint16 firstReleaseInBP, uint amount, address user, address _token) public returns (uint) {
         //        require(block.timestamp <= uint(cliff), 'Vesting: cliff cannot be in past');
+        require(isVestingActive, 'InActive');
         require(10000 >= uint(firstReleaseInBP) && 0 <= uint(firstReleaseInBP), 'VS:103'); //'Vesting: First release cannot be more then 100% and less then 0%'
         require(10000 >= uint(periodBP) && 0 <= uint(periodBP), 'VS:104'); //'Vesting: Period amount release cannot be more then 100% and less then to 0%'
 
