@@ -31,6 +31,7 @@ contract Vesting {
         isVestingActive = true;
     }
 
+    event LockToken (uint32 period, uint32 cliff, uint16 periodBP, uint16 firstReleaseInBP, uint amount, address user, address token);
     modifier onlyOwner(uint vestingPoolId) {
         VestingPool memory vestingPool = vestingPools[vestingPoolId];
         require(msg.sender == vestingPool.user, 'VS:100'); //Vesting: only owner is allowed to withdraw
@@ -111,6 +112,7 @@ contract Vesting {
         // store all vesting pool ids against user address
         vestingIds[user].push(vestingPoolIdToAssign);
         totalVestedTokenAmount += amount;
+        emit LockToken(period, cliff, periodBP, firstReleaseInBP, amount, user, _token);
         return vestingPoolIdToAssign;
     }
 
