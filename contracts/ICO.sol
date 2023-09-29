@@ -16,6 +16,8 @@ contract ICO {
     }
     mapping (Currency => address) public currencyAddresses;
     address private owner;
+    string public goldBarNumber; // serial number
+    string public goldBarWeight; // oz
     Counters.Counter private _saleTracker; // sale tracker
     address public goldyOracle;
     // Sale Structure
@@ -32,7 +34,7 @@ contract ICO {
 
     mapping (uint => Sale) public sales;
 
-    event BuyToken (address indexed user, address currency, uint amount, uint goldyAmount, bool aml, bytes32 message);
+    event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, bytes32 message, string goldBarNumber, string goldBarWeight);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
         owner = msg.sender;
         goldyOracle = _goldyOracle;
@@ -102,7 +104,7 @@ contract ICO {
             IERC20(sale.token).transfer(msg.sender, transferAmount);
         }
         sale.soldToken += transferAmount;
-        emit BuyToken(msg.sender, address(0), amount, transferAmount, aml, message);
+        emit BuyToken(msg.sender, _currency, amount, transferAmount, aml, message, goldBarNumber, goldBarWeight);
     }
 
     function _calculateTransferAmount(uint price, uint amount) internal pure returns (uint) {
@@ -137,5 +139,10 @@ contract ICO {
         bytes32 prefixedHashMessage = keccak256(abi.encodePacked(prefix, _hashedMessage));
         address signer = ecrecover(prefixedHashMessage, _v, _r, _s);
         return user == signer;
+    }
+
+    function updateGoldBarDetails (string memory _goldBarNumber, string memory _goldBarWeight) external onlyOwner {
+        goldBarNumber = _goldBarNumber;
+        goldBarWeight = _goldBarWeight;
     }
 }
