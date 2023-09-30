@@ -33,6 +33,7 @@ contract ICO {
     }
 
     mapping (uint => Sale) public sales;
+    uint public maxTokenSale; // for one year
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, bytes32 message, string goldBarNumber, string goldBarWeight);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
@@ -47,8 +48,9 @@ contract ICO {
         require(msg.sender == owner, 'Only Admin');
         _;
     }
-    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external {
+    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external onlyOwner {
 
+        require(saleValueExceedCheckForMaxTokenSale(_maximumToken), 'current token sale amount exceed max token amount');
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
         sale.startDate = _startDate;
@@ -57,18 +59,19 @@ contract ICO {
         sale.isActive = true;
         sale.isAmlActive = _isAmlActive;
         sale.amlCheck = _amlCheck;
+        IERC20(sale.token).transferFrom(msg.sender, address(this), _maximumToken);
         _saleTracker.increment();
 
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
+        // require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         _buyToken(amount, _currency, false, bytes32(0));
     }
 
     function buyTokenPayable () external payable {
-        require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
+        // require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
         _buyToken(msg.value, Currency.ETH, false, bytes32(0));
     }
 
@@ -145,4 +148,22 @@ contract ICO {
         goldBarNumber = _goldBarNumber;
         goldBarWeight = _goldBarWeight;
     }
+
+    function updateMaxTokenSale(uint _maxTokenSale) external onlyOwner {
+        maxTokenSale = _maxTokenSale;
+    }
+
+    function saleValueExceedCheckForMaxTokenSale(uint _tokenValue) internal view returns (bool) {
+        if (_saleTracker.current() == 0) {
+            return true;
+        }
+        uint sum = 0;
+        for (uint256 i = 0; i < _saleTracker.current(); i++) {
+            Sale memory sale = sales[i];
+            sum += sale.maximumToken;
+        }
+        sum += _tokenValue;
+        return sum < maxTokenSale;
+    }
+
 }
