@@ -67,12 +67,20 @@ contract ICO {
     function buyToken (uint amount, Currency _currency) external {
         // require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
-        _buyToken(amount, _currency, false, bytes32(0));
+        if (amount >= sales[_saleTracker.current() - 1].amlCheck) {
+            _buyToken(amount, _currency, true, bytes32(0));
+        } else {
+            _buyToken(amount, _currency, false, bytes32(0));
+        }
     }
 
     function buyTokenPayable () external payable {
         // require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
-        _buyToken(msg.value, Currency.ETH, false, bytes32(0));
+        if (msg.value >= sales[_saleTracker.current() - 1].amlCheck) {
+            _buyToken(msg.value, Currency.ETH, true, bytes32(0));
+        } else {
+            _buyToken(msg.value, Currency.ETH, false, bytes32(0));
+        }
     }
 
     function verifiedBuyToken (bytes32 _hashedMessage, uint8 _v, bytes32 _r, bytes32 _s, uint amount, Currency _currency) external {
@@ -91,6 +99,7 @@ contract ICO {
         Sale storage sale = sales[_saleTracker.current() - 1];
         require(block.timestamp >= sale.startDate && block.timestamp <= sale.endDate, 'G2'); // either sale not started or ended
         require((sale.soldToken + amount) <= sale.maximumToken, 'G3'); // maximum token sale reach
+        require(sale.isActive, 'Sale Inactive'); // check sale active or not
         IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
         uint transferAmount;
         if (Currency.USDC == _currency) {
