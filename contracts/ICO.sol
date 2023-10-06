@@ -3,9 +3,10 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./IGoldyPriceOracle.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 
-contract ICO {
+contract ICO is AccessControl{
     using Counters for Counters.Counter;
     // supported buy currency
     enum Currency {
@@ -15,7 +16,6 @@ contract ICO {
         EUROC
     }
     mapping (Currency => address) public currencyAddresses;
-    address private owner;
     string public goldBarNumber; // serial number
     string public goldBarWeight; // oz
     Counters.Counter private _saleTracker; // sale tracker
@@ -31,26 +31,45 @@ contract ICO {
         bool isAmlActive; // Aml Active state
         uint amlCheck; // aml check state
     }
+    string private constant REFINERY_ROLE = 'Refinery';
+    string private constant SUB_ADMIN_ROLE = 'SubAdmin';
+    address[] public refineries;
+    address[] public subAdmins;
 
     mapping (uint => Sale) public sales;
     uint public maxTokenSale; // for one year
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, bytes32 message, string goldBarNumber, string goldBarWeight);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
-        owner = msg.sender;
         goldyOracle = _goldyOracle;
         currencyAddresses[Currency.EUROC] = _euroc;
         currencyAddresses[Currency.USDC] = _usdc;
         currencyAddresses[Currency.USDT] = _usdt;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // grant owner admin role
+        grantRole(keccak256(abi.encodePacked(REFINERY_ROLE)), msg.sender); // grant owner refinery role
+        grantRole(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), msg.sender); // grant owner sub admin role
+        _setRoleAdmin(keccak256(abi.encodePacked(REFINERY_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
+        _setRoleAdmin(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
     }
 
     modifier onlyOwner () {
-        require(msg.sender == owner, 'Only Admin');
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), 'OO'); // only owner
         _;
     }
-    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external onlyOwner {
 
-        require(saleValueExceedCheckForMaxTokenSale(_maximumToken), 'current token sale amount exceed max token amount');
+    modifier onlyAdmins () {
+        require((hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), msg.sender)), 'OA'); // only admins
+        _;
+    }
+
+    modifier onlyRefinery () {
+        require(hasRole(keccak256(abi.encodePacked(keccak256(abi.encodePacked(REFINERY_ROLE)))), msg.sender), 'OR'); // only refinery
+        _;
+    }
+
+    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external onlyAdmins {
+
+        require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'current token sale amount exceed max token amount');
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
         sale.startDate = _startDate;
@@ -127,21 +146,21 @@ contract ICO {
         return sales[_saleTracker.current() - 1];
     }
 
-    function updateMaxToken(uint _maxToken) external onlyOwner {
+    function updateMaxToken(uint _maxToken) external onlyAdmins {
         Sale storage sale = sales[_saleTracker.current() - 1];
         sale.maximumToken = _maxToken;
     }
 
-    function toggleSaleStatus() external onlyOwner {
+    function toggleSaleStatus() external onlyAdmins {
         Sale storage sale = sales[_saleTracker.current() - 1];
         sale.isActive = !sale.isActive;
     }
 
-    function toggleAmlStatus() external onlyOwner {
+    function toggleAmlStatus() external onlyAdmins {
         Sale storage sale = sales[_saleTracker.current() - 1];
         sale.isAmlActive = !sale.isAmlActive;
     }
-    function updateAmlCheck(uint _amlCheck) external onlyOwner {
+    function updateAmlCheck(uint _amlCheck) external onlyAdmins {
         Sale storage sale = sales[_saleTracker.current() - 1];
         sale.amlCheck = _amlCheck;
     }
@@ -153,16 +172,42 @@ contract ICO {
         return user == signer;
     }
 
-    function updateGoldBarDetails (string memory _goldBarNumber, string memory _goldBarWeight) external onlyOwner {
+    function updateGoldBarDetails (string memory _goldBarNumber, string memory _goldBarWeight) external onlyAdmins {
         goldBarNumber = _goldBarNumber;
         goldBarWeight = _goldBarWeight;
     }
 
-    function updateMaxTokenSale(uint _maxTokenSale) external onlyOwner {
+    function updateMaxTokenSale(uint _maxTokenSale) external onlyAdmins {
         maxTokenSale = _maxTokenSale;
     }
 
-    function saleValueExceedCheckForMaxTokenSale(uint _tokenValue) internal view returns (bool) {
+    function addRefinery(address _user) external onlyOwner {
+        grantRole(keccak256(abi.encodePacked(REFINERY_ROLE)), _user); // grant refinery role
+        refineries.push(_user);
+    }
+
+    function removeRefinery(address _user) external onlyOwner {
+        revokeRole(keccak256(abi.encodePacked(REFINERY_ROLE)), _user); // remove refinery role
+    }
+
+    function addSubAdmin(address _user) external onlyOwner {
+        grantRole(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)),_user); // grant sub admin role
+        subAdmins.push(_user);
+    }
+
+    function removeSubAdmin(address _user) external onlyOwner {
+        revokeRole(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), _user); // remove sub admin role
+    }
+
+    function getSubAdminsCount() external view returns (uint) {
+        return subAdmins.length;
+    }
+
+    function getRefineriesCount() external view returns (uint) {
+        return refineries.length;
+    }
+
+    function _saleValueExceedCheckForMaxTokenSale(uint _tokenValue) internal view returns (bool) {
         if (_saleTracker.current() == 0) {
             return true;
         }
