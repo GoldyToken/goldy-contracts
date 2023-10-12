@@ -86,7 +86,7 @@ contract ICO is AccessControl{
     function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external onlyAdmins {
 
         require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'exceed max token amount');
-        require(_refineryTracker.current() == 0, 'RCD Empty');
+        require(_refineryTracker.current() > 0, 'RCD Empty');
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
         sale.startDate = _startDate;
