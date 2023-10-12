@@ -65,7 +65,7 @@ contract ICO is AccessControl{
         grantRole(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), msg.sender); // grant owner sub admin role
         _setRoleAdmin(keccak256(abi.encodePacked(REFINERY_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
         _setRoleAdmin(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
-        maxEuroPerSaleYear = 5000000; // 5 millions
+        maxEuroPerSaleYear = 5000000 * 1e18; // 5 millions
     }
 
     modifier onlyOwner () {
@@ -85,7 +85,8 @@ contract ICO is AccessControl{
 
     function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external onlyAdmins {
 
-        require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'current token sale amount exceed max token amount');
+        require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'exceed max token amount');
+        require(_refineryTracker.current() == 0, 'RCD Empty');
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
         sale.startDate = _startDate;
@@ -262,12 +263,7 @@ contract ICO is AccessControl{
         require(_refineryTracker.current() == 0, 'RCD Missing'); // refinery connect details missing
         RefineryConnectDetail memory refineryConnectDetail;
         Sale memory sale = sales[_saleTracker.current() - 1];
-        if (_saleTracker.current() == 0) {
-            refineryConnectDetail = refineryDetails[_saleTracker.current()][_refineryTracker.current() - 1];
-        }
-        else {
-            refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current() - 1];
-        }
+        refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current() - 1];
         RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
         uint totalWeight;
         for (uint i = 0; i < barDetails.length; i++) {
