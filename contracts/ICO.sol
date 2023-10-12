@@ -16,9 +16,8 @@ contract ICO is AccessControl{
         EUROC
     }
     mapping (Currency => address) public currencyAddresses;
-    string public goldBarNumber; // serial number
-    string public goldBarWeight; // oz
     Counters.Counter private _saleTracker; // sale tracker
+    Counters.Counter private _refineryTracker; // refinery connect details tracker
     address public goldyOracle;
     // Sale Structure
     struct Sale {
@@ -31,15 +30,31 @@ contract ICO is AccessControl{
         bool isAmlActive; // Aml Active state
         uint amlCheck; // aml check state
     }
+
+    struct RefineryBarDetails {
+        string serial_number;
+        uint bar_weight;
+    }
+
+    struct RefineryConnectDetail {
+        uint orderDate;
+        uint orderNumber;
+        uint invoiceNumber;
+        uint totalOrderQuantity;
+        uint priceFixForAllTransaction;
+        RefineryBarDetails[] barDetails;
+    }
     string private constant REFINERY_ROLE = 'Refinery';
     string private constant SUB_ADMIN_ROLE = 'SubAdmin';
     address[] public refineries;
     address[] public subAdmins;
 
     mapping (uint => Sale) public sales;
-    uint public maxTokenSale; // for one year
+    mapping (uint => mapping (uint => RefineryConnectDetail)) public refineryDetails; // refinery details against the active sale
+    uint public maxEuroPerSaleYear; // for one year
 
-    event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, bytes32 message, string goldBarNumber, string goldBarWeight);
+    event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, bytes32 message, string goldBarNumber, uint goldBarWeight);
+    event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isAmlActive, uint amlCheck);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
         goldyOracle = _goldyOracle;
         currencyAddresses[Currency.EUROC] = _euroc;
@@ -50,6 +65,7 @@ contract ICO is AccessControl{
         grantRole(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), msg.sender); // grant owner sub admin role
         _setRoleAdmin(keccak256(abi.encodePacked(REFINERY_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
         _setRoleAdmin(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
+        maxEuroPerSaleYear = 5000000; // 5 millions
     }
 
     modifier onlyOwner () {
@@ -79,6 +95,7 @@ contract ICO is AccessControl{
         sale.isAmlActive = _isAmlActive;
         sale.amlCheck = _amlCheck;
         IERC20(sale.token).transferFrom(msg.sender, address(this), _maximumToken);
+        emit CreateSale(_saleTracker.current(), _token, _startDate, _endDate, _maximumToken, _isAmlActive, _amlCheck);
         _saleTracker.increment();
 
     }
@@ -135,7 +152,8 @@ contract ICO is AccessControl{
             IERC20(sale.token).transfer(msg.sender, transferAmount);
         }
         sale.soldToken += transferAmount;
-        emit BuyToken(msg.sender, _currency, amount, transferAmount, aml, message, goldBarNumber, goldBarWeight);
+        RefineryBarDetails memory barDetails = getActiveRefineryBarDetails();
+        emit BuyToken(msg.sender, _currency, amount, transferAmount, aml, message, barDetails.serial_number, barDetails.bar_weight);
     }
 
     function _calculateTransferAmount(uint price, uint amount) internal pure returns (uint) {
@@ -172,13 +190,8 @@ contract ICO is AccessControl{
         return user == signer;
     }
 
-    function updateGoldBarDetails (string memory _goldBarNumber, string memory _goldBarWeight) external onlyAdmins {
-        goldBarNumber = _goldBarNumber;
-        goldBarWeight = _goldBarWeight;
-    }
-
-    function updateMaxTokenSale(uint _maxTokenSale) external onlyAdmins {
-        maxTokenSale = _maxTokenSale;
+    function updateMaxTokenSale(uint _maxEuroPerSaleYear) external onlyAdmins {
+        maxEuroPerSaleYear = _maxEuroPerSaleYear;
     }
 
     function addRefinery(address _user) external onlyOwner {
@@ -207,7 +220,31 @@ contract ICO is AccessControl{
         return refineries.length;
     }
 
+    function addRefineryConnectDetails(uint _orderDate, uint _orderNumber, uint _totalOrderQuantity, uint _priceFixForAllTransaction, uint _invoiceNumber, string[] memory _serial_number, uint[] memory _bar_weights) external {
+        require(_serial_number.length > 0 && _bar_weights.length > 0, 'invalid input');
+        RefineryConnectDetail storage refineryConnectDetail;
+        if (_saleTracker.current() == 0) {
+            refineryConnectDetail = refineryDetails[_saleTracker.current()][_refineryTracker.current()];
+        }
+        else {
+            refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current()];
+        }
+        refineryConnectDetail.orderDate = _orderDate;
+        refineryConnectDetail.orderNumber = _orderNumber;
+        refineryConnectDetail.totalOrderQuantity = _totalOrderQuantity;
+        refineryConnectDetail.priceFixForAllTransaction = _priceFixForAllTransaction;
+        refineryConnectDetail.invoiceNumber = _invoiceNumber;
+        for (uint256 i = 0; i < _serial_number.length; i++) {
+            RefineryBarDetails memory barDetails;
+            barDetails.bar_weight = _bar_weights[i];
+            barDetails.serial_number = _serial_number[i];
+            refineryConnectDetail.barDetails.push(barDetails);
+        }
+        _refineryTracker.increment();
+    }
+
     function _saleValueExceedCheckForMaxTokenSale(uint _tokenValue) internal view returns (bool) {
+        IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
         if (_saleTracker.current() == 0) {
             return true;
         }
@@ -217,7 +254,31 @@ contract ICO is AccessControl{
             sum += sale.maximumToken;
         }
         sum += _tokenValue;
-        return sum < maxTokenSale;
+        uint maxGoldyPerSaleYear = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), maxEuroPerSaleYear);
+        return sum <= maxGoldyPerSaleYear;
     }
+
+    function getActiveRefineryBarDetails() public view returns (RefineryBarDetails memory) {
+        require(_refineryTracker.current() == 0, 'RCD Missing'); // refinery connect details missing
+        RefineryConnectDetail memory refineryConnectDetail;
+        Sale memory sale = sales[_saleTracker.current() - 1];
+        if (_saleTracker.current() == 0) {
+            refineryConnectDetail = refineryDetails[_saleTracker.current()][_refineryTracker.current() - 1];
+        }
+        else {
+            refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current() - 1];
+        }
+        RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
+        uint totalWeight;
+        for (uint i = 0; i < barDetails.length; i++) {
+            RefineryBarDetails memory barDetail = barDetails[i];
+            totalWeight += barDetail.bar_weight;
+            if (sale.soldToken <= (totalWeight * 1000)) { // 1oz = 10000 GOLDY
+                return barDetails[i];
+            }
+        }
+        return barDetails[barDetails.length - 1];
+    }
+
 
 }
