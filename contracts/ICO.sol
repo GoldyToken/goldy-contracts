@@ -262,7 +262,8 @@ contract ICO is AccessControl{
     }
 
     function getActiveRefineryBarDetails() public view returns (RefineryBarDetails memory) {
-        require(_refineryTracker.current() == 0, 'RCD Missing'); // refinery connect details missing
+        require(_refineryTracker.current() > 0, 'RCD Missing'); // refinery connect details missing
+        require(_saleTracker.current() > 0, 'SALE Missing'); // refinery connect details missing
         RefineryConnectDetail memory refineryConnectDetail;
         Sale memory sale = sales[_saleTracker.current() - 1];
         refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current() - 1];
