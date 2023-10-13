@@ -9,7 +9,7 @@ async function main() {
     // await hre.run('compile');
 
     // We get the contract to deploy
-    const ico = await ethers.deployContract("ICO", ["0xe6576048D784F91766E8484f258530fDD2633fb3", "0x79717dBe678C0204a4Fcb7B3fAc22B1773C2cd41", "0x193773Be48cF77c0638CA315c6C905532e436c60", "0x85fBC828927dD6357692aCc9B981f1215886A028"]);
+    const ico = await ethers.deployContract("ICO", ["0xe6576048D784F91766E8484f258530fDD2633fb3", "0x79717dBe678C0204a4Fcb7B3fAc22B1773C2cd41", "0x193773Be48cF77c0638CA315c6C905532e436c60", "0x85fBC828927dD6357692aCc9B981f1215886A028", "0x7cA0128701B0fBbE5f75AA9A750C8738d683B69c"]);
 
     await ico.waitForDeployment();
 

@@ -55,7 +55,7 @@ contract ICO is AccessControl{
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, bytes32 message, string goldBarNumber, uint goldBarWeight);
     event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isAmlActive, uint amlCheck);
-    constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc) {
+    constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc, address _refinery) {
         goldyOracle = _goldyOracle;
         currencyAddresses[Currency.EUROC] = _euroc;
         currencyAddresses[Currency.USDC] = _usdc;
@@ -66,6 +66,8 @@ contract ICO is AccessControl{
         _setRoleAdmin(keccak256(abi.encodePacked(REFINERY_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
         _setRoleAdmin(keccak256(abi.encodePacked(SUB_ADMIN_ROLE)), DEFAULT_ADMIN_ROLE); // admin of this role is main owner
         maxEuroPerSaleYear = 5000000 * 1e18; // 5 millions
+        grantRole(keccak256(abi.encodePacked(REFINERY_ROLE)), _refinery); // grant refinery role
+        refineries.push(_refinery);
     }
 
     modifier onlyOwner () {
@@ -221,7 +223,7 @@ contract ICO is AccessControl{
         return refineries.length;
     }
 
-    function addRefineryConnectDetails(uint _orderDate, uint _orderNumber, uint _totalOrderQuantity, uint _priceFixForAllTransaction, uint _invoiceNumber, string[] memory _serial_number, uint[] memory _bar_weights) external {
+    function addRefineryConnectDetails(uint _orderDate, uint _orderNumber, uint _totalOrderQuantity, uint _priceFixForAllTransaction, uint _invoiceNumber, string[] memory _serial_number, uint[] memory _bar_weights) external onlyRefinery {
         require(_serial_number.length > 0 && _bar_weights.length > 0, 'invalid input');
         RefineryConnectDetail storage refineryConnectDetail;
         if (_saleTracker.current() == 0) {
