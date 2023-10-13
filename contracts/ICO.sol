@@ -81,7 +81,7 @@ contract ICO is AccessControl{
     }
 
     modifier onlyRefinery () {
-        require(hasRole(keccak256(abi.encodePacked(keccak256(abi.encodePacked(REFINERY_ROLE)))), msg.sender), 'OR'); // only refinery
+        require(hasRole(keccak256(abi.encodePacked(REFINERY_ROLE)), msg.sender), 'OR'); // only refinery
         _;
     }
 
