@@ -131,24 +131,21 @@ contract ICO is AccessControl{
         require(amount > 0 && _saleTracker.current() > 0, 'G1'); // either amount is less than 0 or sale not started
         Sale storage sale = sales[_saleTracker.current() - 1];
         require(block.timestamp >= sale.startDate && block.timestamp <= sale.endDate, 'G2'); // either sale not started or ended
-        require((sale.soldToken + amount) <= sale.maximumToken, 'G3'); // maximum token sale reach
         require(sale.isActive, 'Sale Inactive'); // check sale active or not
         IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
         uint transferAmount;
         if (Currency.USDC == _currency) {
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDCPrice(), amount);
-            IERC20(sale.token).transfer(msg.sender, transferAmount);
         } else if (Currency.USDT == _currency) {
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDTPrice(), amount);
-            IERC20(sale.token).transfer(msg.sender, transferAmount);
         } else if (Currency.EUROC == _currency) {
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), amount);
-            IERC20(sale.token).transfer(msg.sender, transferAmount);
         } else if (Currency.ETH == _currency) {
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount);
-            IERC20(sale.token).transfer(msg.sender, transferAmount);
         }
         sale.soldToken += transferAmount;
+        require((sale.soldToken <= sale.maximumToken, 'G3'); // maximum token sale reach
+        IERC20(sale.token).transfer(msg.sender, transferAmount);
         RefineryBarDetails memory barDetails = getActiveRefineryBarDetails();
         emit BuyToken(msg.sender, _currency, amount, transferAmount, aml, message, barDetails.serial_number, barDetails.bar_weight);
     }
