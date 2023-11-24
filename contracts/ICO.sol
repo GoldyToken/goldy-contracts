@@ -144,7 +144,7 @@ contract ICO is AccessControl{
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount);
         }
         sale.soldToken += transferAmount;
-        require((sale.soldToken <= sale.maximumToken, 'G3'); // maximum token sale reach
+        require(sale.soldToken <= sale.maximumToken, 'G3'); // maximum token sale reach
         IERC20(sale.token).transfer(msg.sender, transferAmount);
         RefineryBarDetails memory barDetails = getActiveRefineryBarDetails();
         emit BuyToken(msg.sender, _currency, amount, transferAmount, aml, message, barDetails.serial_number, barDetails.bar_weight);
