@@ -53,7 +53,7 @@ contract ICO is AccessControl{
     mapping (uint => mapping (uint => RefineryConnectDetail)) public refineryDetails; // refinery details against the active sale
     uint public maxEuroPerSaleYear; // for one year
 
-    event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, bytes32 message, string goldBarNumber, uint goldBarWeight);
+    event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, string message, string goldBarNumber, uint goldBarWeight);
     event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isAmlActive, uint amlCheck);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc, address _refinery) {
         goldyOracle = _goldyOracle;
@@ -104,36 +104,30 @@ contract ICO is AccessControl{
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        // require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
+        require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
-        if (amount >= sales[_saleTracker.current() - 1].amlCheck) {
-            _buyToken(amount, _currency, true, bytes32(0));
-        } else {
-            _buyToken(amount, _currency, false, bytes32(0));
-        }
+        string memory message = 'native function';
+        _buyToken(amount, _currency, false, message);
     }
 
     function buyTokenPayable () external payable {
-        // require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
-        if (msg.value >= sales[_saleTracker.current() - 1].amlCheck) {
-            _buyToken(msg.value, Currency.ETH, true, bytes32(0));
-        } else {
-            _buyToken(msg.value, Currency.ETH, false, bytes32(0));
-        }
+        require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
+        string memory message = 'native function';
+        _buyToken(msg.value, Currency.ETH, false, message);
     }
 
-    function verifiedBuyToken (bytes32 _hashedMessage, uint8 _v, bytes32 _r, bytes32 _s, uint amount, Currency _currency) external {
-        require(verifyMessage(_hashedMessage, _v, _r, _s, msg.sender), 'invalid user');
+    function verifiedBuyToken (string memory message, bytes calldata sig, uint amount, Currency _currency) external {
+        require(recoverStringFromRaw(message, sig) == msg.sender, 'invalid user');
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
-        _buyToken(amount, _currency, true, _hashedMessage);
+        _buyToken(amount, _currency, true, message);
     }
 
-    function verifiedBuyTokenPayable (bytes32 _hashedMessage, uint8 _v, bytes32 _r, bytes32 _s) external payable {
-        require(verifyMessage(_hashedMessage, _v, _r, _s, msg.sender), 'invalid user');
-        _buyToken(msg.value, Currency.ETH, true, _hashedMessage);
+    function verifiedBuyTokenPayable (string memory message, bytes calldata sig) external payable {
+        require(recoverStringFromRaw(message, sig) == msg.sender, 'invalid user');
+        _buyToken(msg.value, Currency.ETH, true, message);
     }
 
-    function _buyToken(uint amount, Currency _currency, bool aml, bytes32 message) internal {
+    function _buyToken(uint amount, Currency _currency, bool aml, string memory message) internal {
         require(amount > 0 && _saleTracker.current() > 0, 'G1'); // either amount is less than 0 or sale not started
         Sale storage sale = sales[_saleTracker.current() - 1];
         require(block.timestamp >= sale.startDate && block.timestamp <= sale.endDate, 'G2'); // either sale not started or ended
@@ -164,6 +158,10 @@ contract ICO is AccessControl{
     }
 
     function getCurrentSaleDetails() external view returns (Sale memory) {
+        Sale memory sale;
+        if (_saleTracker.current() == 0) {
+            return sale;
+        }
         return sales[_saleTracker.current() - 1];
     }
 
@@ -268,6 +266,7 @@ contract ICO is AccessControl{
         Sale memory sale = sales[_saleTracker.current() - 1];
         refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current() - 1];
         RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
+        require(barDetails.length > 0, 'RCD Missing'); // refinery connect details missing
         uint totalWeight;
         for (uint i = 0; i < barDetails.length; i++) {
             RefineryBarDetails memory barDetail = barDetails[i];
@@ -279,5 +278,71 @@ contract ICO is AccessControl{
         return barDetails[barDetails.length - 1];
     }
 
+    function recoverStringFromRaw(string memory message, bytes calldata sig) public pure returns (address) {
+
+        // Sanity check before using assembly
+        require(sig.length == 65, "invalid signature");
+
+        // Decompose the raw signature into r, s and v (note the order)
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        assembly {
+            r := calldataload(sig.offset)
+            s := calldataload(add(sig.offset, 0x20))
+            v := calldataload(add(sig.offset, 0x21))
+        }
+
+        return _ecrecover(message, v, r, s);
+    }
+
+    // Helper function
+    function _ecrecover(string memory message, uint8 v, bytes32 r, bytes32 s) internal pure returns (address) {
+        // Compute the EIP-191 prefixed message
+        bytes memory prefixedMessage = abi.encodePacked(
+            "\x19Ethereum Signed Message:\n",
+            itoa(bytes(message).length),
+            message
+        );
+
+        // Compute the message digest
+        bytes32 digest = keccak256(prefixedMessage);
+
+        // Use the native ecrecover provided by the EVM
+        return ecrecover(digest, v, r, s);
+    }
+
+    function itoa(uint value) public pure returns (string memory) {
+
+        // Count the length of the decimal string representation
+        uint length = 1;
+        uint v = value;
+        while ((v /= 10) != 0) { length++; }
+
+        // Allocated enough bytes
+        bytes memory result = new bytes(length);
+
+        // Place each ASCII string character in the string,
+        // right to left
+        while (true) {
+            length--;
+
+            // The ASCII value of the modulo 10 value
+            result[length] = bytes1(uint8(0x30 + (value % 10)));
+
+            value /= 10;
+
+            if (length == 0) { break; }
+        }
+
+        return string(result);
+    }
+
+    function withdrawAll() public onlyOwner {
+        IERC20(currencyAddresses[Currency.EUROC]).transfer(msg.sender, IERC20(currencyAddresses[Currency.EUROC]).balanceOf(address(this)));
+        IERC20(currencyAddresses[Currency.USDC]).transfer(msg.sender, IERC20(currencyAddresses[Currency.USDC]).balanceOf(address(this)));
+        IERC20(currencyAddresses[Currency.USDT]).transfer(msg.sender, IERC20(currencyAddresses[Currency.USDT]).balanceOf(address(this)));
+        payable(msg.sender).transfer(address(this).balance);
+    }
 
 }

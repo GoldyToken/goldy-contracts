@@ -14,6 +14,11 @@ async function main() {
     await ico.waitForDeployment();
 
     console.log("ico deployed to:", ico.target);
+
+    await ico.addRefineryConnectDetails(1700196030, 12321, 100, 1000, 123343, ['etete'], [100]);
+    console.log("Refinery Details Added");
+
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
