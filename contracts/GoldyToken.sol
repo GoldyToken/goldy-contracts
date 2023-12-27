@@ -21,4 +21,9 @@ contract GoldyToken is ERC20, AccessControl {
     function mint(uint _value) external onlyMinter {
         _mint(msg.sender, _value);
     }
+
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
+    }
+
 }
