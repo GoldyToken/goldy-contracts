@@ -28,6 +28,11 @@ const config: HardhatUserConfig = {
       accounts:
           process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
+    ETHMAINNET: {
+      url: process.env.ETH_URL || "",
+      accounts:
+          process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
     BSCTestnet: {
       url: process.env.NODE_RPC_URL || "",
       accounts:
