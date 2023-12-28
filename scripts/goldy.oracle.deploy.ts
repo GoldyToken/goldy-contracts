@@ -9,7 +9,7 @@ async function main() {
     // await hre.run('compile');
 
     // We get the contract to deploy
-    const goldyPriceOracle = await ethers.deployContract("GoldyPriceOracle", ["0x7b219F57a8e9C7303204Af681e9fA69d17ef626f", "0x44390589104C9164407A0E0562a9DBe6C24A0E05", "0x73D9c953DaaB1c829D01E1FC0bd92e28ECfB66DB", "0xAb5c49580294Aff77670F839ea425f5b78ab3Ae7", "0xAb5c49580294Aff77670F839ea425f5b78ab3Ae7", "0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e"]);
+    const goldyPriceOracle = await ethers.deployContract("GoldyPriceOracle", ["0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6", "0xb49f677943BC038e9857d61E7d053CaA2C1734C1", "0x5c0Ab2d9b5a7ed9f470386e82BB36A3613cDd4b5", "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6", "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D", "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"]);
 
     await goldyPriceOracle.waitForDeployment();
 

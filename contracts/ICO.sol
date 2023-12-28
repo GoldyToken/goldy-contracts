@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./IGoldyPriceOracle.sol";
+import "./IGoldyToken.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
@@ -89,6 +90,7 @@ contract ICO is AccessControl{
 
         require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'exceed max token amount');
         require(_refineryTracker.current() > 0, 'RCD Empty');
+        _burnUnsoldToken(sales[_saleTracker.current() - 1].token, sales[_saleTracker.current() - 1].maximumToken);
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
         sale.startDate = _startDate;
@@ -340,6 +342,16 @@ contract ICO is AccessControl{
         IERC20(currencyAddresses[Currency.USDC]).transfer(msg.sender, IERC20(currencyAddresses[Currency.USDC]).balanceOf(address(this)));
         IERC20(currencyAddresses[Currency.USDT]).transfer(msg.sender, IERC20(currencyAddresses[Currency.USDT]).balanceOf(address(this)));
         payable(msg.sender).transfer(address(this).balance);
+    }
+
+    function burnUnsoldToken(address token, uint256 amount) public onlyOwner {
+        _burnUnsoldToken(token, amount);
+    }
+
+    function _burnUnsoldToken(address token, uint256 amount) internal {
+        if(amount > 0) {
+            IGoldyToken(token).burn(amount);
+        }
     }
 
 }
