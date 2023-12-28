@@ -90,7 +90,9 @@ contract ICO is AccessControl{
 
         require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'exceed max token amount');
         require(_refineryTracker.current() > 0, 'RCD Empty');
-        _burnUnsoldToken(sales[_saleTracker.current() - 1].token, sales[_saleTracker.current() - 1].maximumToken);
+        if (_saleTracker.current() != 0) {
+            _burnUnsoldToken(sales[_saleTracker.current() - 1].token, sales[_saleTracker.current() - 1].maximumToken);
+        }
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
         sale.startDate = _startDate;
