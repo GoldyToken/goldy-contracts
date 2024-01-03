@@ -277,7 +277,7 @@ contract ICO is AccessControl{
         for (uint i = 0; i < barDetails.length; i++) {
             RefineryBarDetails memory barDetail = barDetails[i];
             totalWeight += barDetail.bar_weight;
-            if ((sale.soldToken + _transferTokenAmount) <= (totalWeight * 10000)) { // 1oz = 10000 GOLDY
+            if ((sale.soldToken + _transferTokenAmount) <= (totalWeight * 10000 * 1e18)) { // 1oz = 10000 GOLDY
                 return barDetails[i];
             }
         }
@@ -296,7 +296,7 @@ contract ICO is AccessControl{
             RefineryBarDetails memory barDetail = barDetails[i];
             totalWeight += barDetail.bar_weight;
         }
-        return totalWeight * 10000; // 1oz = 10000 GOLDY
+        return totalWeight * 10000 * 1e18; // 1oz = 10000 GOLDY
     }
 
     function recoverStringFromRaw(string memory message, bytes calldata sig) public pure returns (address) {
