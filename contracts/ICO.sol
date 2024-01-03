@@ -51,8 +51,9 @@ contract ICO is AccessControl{
     address[] public subAdmins;
 
     mapping (uint => Sale) public sales;
-    mapping (uint => mapping (uint => RefineryConnectDetail)) public refineryDetails; // refinery details against the active sale
+    mapping (uint => RefineryConnectDetail) public refineryDetails; // refinery details against the active sale
     uint public maxEuroPerSaleYear; // for one year
+    uint public startDate; // year start date 1 jan 2024
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, string message, string goldBarNumber, uint goldBarWeight);
     event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isAmlActive, uint amlCheck);
@@ -69,6 +70,7 @@ contract ICO is AccessControl{
         maxEuroPerSaleYear = 5000000 * 1e18; // 5 millions
         grantRole(keccak256(abi.encodePacked(REFINERY_ROLE)), _refinery); // grant refinery role
         refineries.push(_refinery);
+        startDate = 1704091734; // 1 jan 2024
     }
 
     modifier onlyOwner () {
@@ -88,8 +90,8 @@ contract ICO is AccessControl{
 
     function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external onlyAdmins {
 
-        require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'exceed max token amount');
-        require(_refineryTracker.current() > 0, 'RCD Empty');
+        require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'EA'); // exceed maximum sale amount
+        require(_refineryTracker.current() > 0, 'RE'); // refinery connect empty
         if (_saleTracker.current() != 0) {
             _burnUnsoldToken(sales[_saleTracker.current() - 1].token, IERC20(sales[_saleTracker.current() - 1].token).balanceOf(address(this)));
         }
@@ -101,6 +103,10 @@ contract ICO is AccessControl{
         sale.isActive = true;
         sale.isAmlActive = _isAmlActive;
         sale.amlCheck = _amlCheck;
+        if (sale.startDate > (startDate + 365 days)) {
+            _updateStartDate(); // sale creating after one year than reset startDate for next year cycle
+        }
+        require((_maximumToken + getTotalSoldToken()) <= _getTotalGoldyFromRefinery(), 'NGB'); // not enough gold bar
         IERC20(sale.token).transferFrom(msg.sender, address(this), _maximumToken);
         emit CreateSale(_saleTracker.current(), _token, _startDate, _endDate, _maximumToken, _isAmlActive, _amlCheck);
         _saleTracker.increment();
@@ -108,26 +114,26 @@ contract ICO is AccessControl{
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        require(amount < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
+        require(amount < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         string memory message = 'native function';
         _buyToken(amount, _currency, false, message);
     }
 
     function buyTokenPayable () external payable {
-        require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'Not AD'); //  Not Allowed to trade more than amlCheck amount
+        require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
         string memory message = 'native function';
         _buyToken(msg.value, Currency.ETH, false, message);
     }
 
     function verifiedBuyToken (string memory message, bytes calldata sig, uint amount, Currency _currency) external {
-        require(recoverStringFromRaw(message, sig) == msg.sender, 'invalid user');
+        require(recoverStringFromRaw(message, sig) == msg.sender, 'IU'); // invalid user
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         _buyToken(amount, _currency, true, message);
     }
 
     function verifiedBuyTokenPayable (string memory message, bytes calldata sig) external payable {
-        require(recoverStringFromRaw(message, sig) == msg.sender, 'invalid user');
+        require(recoverStringFromRaw(message, sig) == msg.sender, 'IU'); // invalid user
         _buyToken(msg.value, Currency.ETH, true, message);
     }
 
@@ -150,7 +156,7 @@ contract ICO is AccessControl{
         sale.soldToken += transferAmount;
         require(sale.soldToken <= sale.maximumToken, 'G3'); // maximum token sale reach
         IERC20(sale.token).transfer(msg.sender, transferAmount);
-        RefineryBarDetails memory barDetails = getActiveRefineryBarDetails();
+        RefineryBarDetails memory barDetails = _getActiveRefineryBarDetails(transferAmount);
         emit BuyToken(msg.sender, _currency, amount, transferAmount, aml, message, barDetails.serial_number, barDetails.bar_weight);
     }
 
@@ -166,9 +172,11 @@ contract ICO is AccessControl{
         return sales[_saleTracker.current() - 1];
     }
 
-    function updateMaxToken(uint _maxToken) external onlyAdmins {
+    function upgradeMaxToken(uint _maxToken) external onlyAdmins {
+        require(_saleValueExceedCheckForMaxTokenSale(_maxToken), 'EA'); // exceed maximum sale amount
         Sale storage sale = sales[_saleTracker.current() - 1];
-        sale.maximumToken = _maxToken;
+        IERC20(sale.token).transferFrom(msg.sender, address(this), _maxToken);
+        sale.maximumToken += _maxToken;
     }
 
     function toggleSaleStatus() external onlyAdmins {
@@ -225,12 +233,7 @@ contract ICO is AccessControl{
     function addRefineryConnectDetails(uint _orderDate, uint _orderNumber, uint _totalOrderQuantity, uint _priceFixForAllTransaction, uint _invoiceNumber, string[] memory _serial_number, uint[] memory _bar_weights) external onlyRefinery {
         require(_serial_number.length > 0 && _bar_weights.length > 0, 'invalid input');
         RefineryConnectDetail storage refineryConnectDetail;
-        if (_saleTracker.current() == 0) {
-            refineryConnectDetail = refineryDetails[_saleTracker.current()][_refineryTracker.current()];
-        }
-        else {
-            refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current()];
-        }
+        refineryConnectDetail = refineryDetails[_refineryTracker.current()];
         refineryConnectDetail.orderDate = _orderDate;
         refineryConnectDetail.orderNumber = _orderNumber;
         refineryConnectDetail.totalOrderQuantity = _totalOrderQuantity;
@@ -253,30 +256,47 @@ contract ICO is AccessControl{
         uint sum = 0;
         for (uint256 i = 0; i < _saleTracker.current(); i++) {
             Sale memory sale = sales[i];
-            sum += sale.maximumToken;
+            if (sale.startDate >= startDate) {
+                sum += sale.maximumToken;
+            }
         }
         sum += _tokenValue;
         uint maxGoldyPerSaleYear = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), maxEuroPerSaleYear);
         return sum <= maxGoldyPerSaleYear;
     }
 
-    function getActiveRefineryBarDetails() public view returns (RefineryBarDetails memory) {
+    function _getActiveRefineryBarDetails(uint _transferTokenAmount) internal view returns (RefineryBarDetails memory) {
         require(_refineryTracker.current() > 0, 'RCD Missing'); // refinery connect details missing
         require(_saleTracker.current() > 0, 'SALE Missing'); // refinery connect details missing
         RefineryConnectDetail memory refineryConnectDetail;
         Sale memory sale = sales[_saleTracker.current() - 1];
-        refineryConnectDetail = refineryDetails[_saleTracker.current() - 1][_refineryTracker.current() - 1];
+        refineryConnectDetail = refineryDetails[_refineryTracker.current() - 1];
         RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
         require(barDetails.length > 0, 'RCD Missing'); // refinery connect details missing
         uint totalWeight;
         for (uint i = 0; i < barDetails.length; i++) {
             RefineryBarDetails memory barDetail = barDetails[i];
             totalWeight += barDetail.bar_weight;
-            if (sale.soldToken <= (totalWeight * 1000)) { // 1oz = 10000 GOLDY
+            if ((sale.soldToken + _transferTokenAmount) <= (totalWeight * 10000)) { // 1oz = 10000 GOLDY
                 return barDetails[i];
             }
         }
         return barDetails[barDetails.length - 1];
+    }
+
+    function _getTotalGoldyFromRefinery() internal view returns (uint) {
+        require(_refineryTracker.current() > 0, 'RCD Missing'); // refinery connect details missing
+        require(_saleTracker.current() > 0, 'SALE Missing'); // refinery connect details missing
+        RefineryConnectDetail memory refineryConnectDetail;
+        refineryConnectDetail = refineryDetails[_refineryTracker.current() - 1];
+        RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
+        require(barDetails.length > 0, 'RCD Missing'); // refinery connect details missing
+        uint totalWeight;
+        for (uint i = 0; i < barDetails.length; i++) {
+            RefineryBarDetails memory barDetail = barDetails[i];
+            totalWeight += barDetail.bar_weight;
+        }
+        return totalWeight * 10000; // 1oz = 10000 GOLDY
     }
 
     function recoverStringFromRaw(string memory message, bytes calldata sig) public pure returns (address) {
@@ -346,10 +366,6 @@ contract ICO is AccessControl{
         payable(msg.sender).transfer(address(this).balance);
     }
 
-    function burnUnsoldToken(address token, uint256 amount) public onlyOwner {
-        _burnUnsoldToken(token, amount);
-    }
-
     function _burnUnsoldToken(address token, uint256 amount) internal {
         if(amount > 0) {
             IGoldyToken(token).burn(amount);
@@ -360,4 +376,19 @@ contract ICO is AccessControl{
         goldyOracle = _goldyOracle;
     }
 
+    function getTotalSoldToken() internal view returns (uint) {
+        uint soldToken;
+        for (uint256 i = 0; i < _saleTracker.current(); i++) {
+            Sale memory sale = sales[i];
+            soldToken += sale.soldToken;
+        }
+        return soldToken;
+    }
+
+    function updateStartDate() external onlyOwner {
+        _updateStartDate();
+    }
+    function _updateStartDate() internal {
+        startDate = block.timestamp;
+    }
 }
