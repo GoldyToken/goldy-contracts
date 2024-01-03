@@ -106,7 +106,7 @@ contract ICO is AccessControl{
         if (sale.startDate > (startDate + 365 days)) {
             _updateStartDate(); // sale creating after one year than reset startDate for next year cycle
         }
-        require((_maximumToken + getTotalSoldToken()) <= _getTotalGoldyFromRefinery(), 'NGB'); // not enough gold bar
+        require((_maximumToken + _getTotalSoldToken()) <= _getTotalGoldyFromRefinery(), 'NGB'); // not enough gold bar
         IERC20(sale.token).transferFrom(msg.sender, address(this), _maximumToken);
         emit CreateSale(_saleTracker.current(), _token, _startDate, _endDate, _maximumToken, _isAmlActive, _amlCheck);
         _saleTracker.increment();
@@ -114,14 +114,18 @@ contract ICO is AccessControl{
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        require(amount < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
+        if (sales[_saleTracker.current() - 1].isAmlActive) {
+            require(amount < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
+        }
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         string memory message = 'native function';
         _buyToken(amount, _currency, false, message);
     }
 
     function buyTokenPayable () external payable {
-        require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
+        if (sales[_saleTracker.current() - 1].isAmlActive) {
+            require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
+        }
         string memory message = 'native function';
         _buyToken(msg.value, Currency.ETH, false, message);
     }
@@ -153,10 +157,10 @@ contract ICO is AccessControl{
         } else if (Currency.ETH == _currency) {
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount);
         }
+        RefineryBarDetails memory barDetails = _getActiveRefineryBarDetails(transferAmount);
         sale.soldToken += transferAmount;
         require(sale.soldToken <= sale.maximumToken, 'G3'); // maximum token sale reach
         IERC20(sale.token).transfer(msg.sender, transferAmount);
-        RefineryBarDetails memory barDetails = _getActiveRefineryBarDetails(transferAmount);
         emit BuyToken(msg.sender, _currency, amount, transferAmount, aml, message, barDetails.serial_number, barDetails.bar_weight);
     }
 
@@ -266,35 +270,36 @@ contract ICO is AccessControl{
     }
 
     function _getActiveRefineryBarDetails(uint _transferTokenAmount) internal view returns (RefineryBarDetails memory) {
-        require(_refineryTracker.current() > 0, 'RCD Missing'); // refinery connect details missing
-        require(_saleTracker.current() > 0, 'SALE Missing'); // refinery connect details missing
-        RefineryConnectDetail memory refineryConnectDetail;
-        Sale memory sale = sales[_saleTracker.current() - 1];
-        refineryConnectDetail = refineryDetails[_refineryTracker.current() - 1];
-        RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
-        require(barDetails.length > 0, 'RCD Missing'); // refinery connect details missing
+        require(_refineryTracker.current() > 0 && _saleTracker.current() > 0, 'RCSM'); // refinery connect details or sale missing
         uint totalWeight;
-        for (uint i = 0; i < barDetails.length; i++) {
-            RefineryBarDetails memory barDetail = barDetails[i];
-            totalWeight += barDetail.bar_weight;
-            if ((sale.soldToken + _transferTokenAmount) <= (totalWeight * 10000 * 1e18)) { // 1oz = 10000 GOLDY
-                return barDetails[i];
+        RefineryConnectDetail memory refineryConnectDetail;
+        for (uint i = 0; i < _refineryTracker.current(); i++) {
+            refineryConnectDetail = refineryDetails[i];
+            RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
+            for (uint j = 0; j < barDetails.length; j++) {
+                RefineryBarDetails memory barDetail = barDetails[j];
+                totalWeight += barDetail.bar_weight;
+                if ((_getTotalSoldToken() + _transferTokenAmount) <= (totalWeight * 10000 * 1e18)) { // 1oz = 10000 GOLDY
+                    return barDetails[j];
+                }
             }
         }
-        return barDetails[barDetails.length - 1];
+
+        RefineryBarDetails[] memory _barDetails = refineryDetails[_refineryTracker.current() - 1].barDetails;
+        return _barDetails[_barDetails.length - 1];
     }
 
     function _getTotalGoldyFromRefinery() internal view returns (uint) {
-        require(_refineryTracker.current() > 0, 'RCD Missing'); // refinery connect details missing
-        require(_saleTracker.current() > 0, 'SALE Missing'); // refinery connect details missing
-        RefineryConnectDetail memory refineryConnectDetail;
-        refineryConnectDetail = refineryDetails[_refineryTracker.current() - 1];
-        RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
-        require(barDetails.length > 0, 'RCD Missing'); // refinery connect details missing
+        require(_refineryTracker.current() > 0, 'RCM'); // refinery connect details missing
         uint totalWeight;
-        for (uint i = 0; i < barDetails.length; i++) {
-            RefineryBarDetails memory barDetail = barDetails[i];
-            totalWeight += barDetail.bar_weight;
+        RefineryConnectDetail memory refineryConnectDetail;
+        for (uint i = 0; i < _refineryTracker.current(); i++) {
+            refineryConnectDetail = refineryDetails[i];
+            RefineryBarDetails[] memory barDetails = refineryConnectDetail.barDetails;
+            for (uint j = 0; j < barDetails.length; j++) {
+                RefineryBarDetails memory barDetail = barDetails[j];
+                totalWeight += barDetail.bar_weight;
+            }
         }
         return totalWeight * 10000 * 1e18; // 1oz = 10000 GOLDY
     }
@@ -368,7 +373,8 @@ contract ICO is AccessControl{
 
     function _burnUnsoldToken(address token, uint256 amount) internal {
         if(amount > 0) {
-            IGoldyToken(token).burn(amount);
+            IGoldyToken goldyToken = IGoldyToken(token);
+            goldyToken.burn(amount);
         }
     }
 
@@ -376,7 +382,7 @@ contract ICO is AccessControl{
         goldyOracle = _goldyOracle;
     }
 
-    function getTotalSoldToken() internal view returns (uint) {
+    function _getTotalSoldToken() internal view returns (uint) {
         uint soldToken;
         for (uint256 i = 0; i < _saleTracker.current(); i++) {
             Sale memory sale = sales[i];
