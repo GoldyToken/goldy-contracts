@@ -91,7 +91,7 @@ contract ICO is AccessControl{
         require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'exceed max token amount');
         require(_refineryTracker.current() > 0, 'RCD Empty');
         if (_saleTracker.current() != 0) {
-            _burnUnsoldToken(sales[_saleTracker.current() - 1].token, sales[_saleTracker.current() - 1].maximumToken);
+            _burnUnsoldToken(sales[_saleTracker.current() - 1].token, IERC20(sales[_saleTracker.current() - 1].token).balanceOf(address(this)));
         }
         Sale storage sale = sales[_saleTracker.current()];
         sale.token = _token;
@@ -354,6 +354,10 @@ contract ICO is AccessControl{
         if(amount > 0) {
             IGoldyToken(token).burn(amount);
         }
+    }
+
+    function updateGoldyPriceOracle(address _goldyOracle) external onlyOwner {
+        goldyOracle = _goldyOracle;
     }
 
 }
