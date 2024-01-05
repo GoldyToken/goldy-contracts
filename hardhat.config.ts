@@ -19,8 +19,8 @@ const config: HardhatUserConfig = {
   networks: {
     // hardhat: {
     //   forking: {
-    //     url: "https://rpc.ankr.com/bsc",
-    //     blockNumber: 19741317,
+    //     url: "https://eth-goerli.g.alchemy.com/v2/Eay-vafyWDrHIgkMn7e8lFB7y7TGujah",
+    //     blockNumber: 10324105,
     //   },
     // },
     GOERLI: {
