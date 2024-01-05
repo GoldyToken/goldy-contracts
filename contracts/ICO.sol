@@ -245,7 +245,7 @@ contract ICO is AccessControl{
         refineryConnectDetail.invoiceNumber = _invoiceNumber;
         for (uint256 i = 0; i < _serial_number.length; i++) {
             RefineryBarDetails memory barDetails;
-            barDetails.bar_weight = _bar_weights[i];
+            barDetails.bar_weight = _bar_weights[i]; // adding bar weight in 100 multiple like 1 = 100, 1.5  = 150
             barDetails.serial_number = _serial_number[i];
             refineryConnectDetail.barDetails.push(barDetails);
         }
@@ -279,7 +279,7 @@ contract ICO is AccessControl{
             for (uint j = 0; j < barDetails.length; j++) {
                 RefineryBarDetails memory barDetail = barDetails[j];
                 totalWeight += barDetail.bar_weight;
-                if ((_getTotalSoldToken() + _transferTokenAmount) <= (totalWeight * 10000 * 1e18)) { // 1oz = 10000 GOLDY
+                if ((_getTotalSoldToken() + _transferTokenAmount) <= ((totalWeight * 10000 * 1e18) / 100)) { // 1oz = 10000 GOLDY
                     return barDetails[j];
                 }
             }
@@ -301,7 +301,7 @@ contract ICO is AccessControl{
                 totalWeight += barDetail.bar_weight;
             }
         }
-        return totalWeight * 10000 * 1e18; // 1oz = 10000 GOLDY
+        return(totalWeight * 10000 * 1e18) / 100; // 1oz = 10000 GOLDY and bar weight is hundred multiple than convert back
     }
 
     function recoverStringFromRaw(string memory message, bytes calldata sig) public pure returns (address) {
