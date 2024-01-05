@@ -41,7 +41,7 @@ contract ICO is AccessControl{
         uint orderDate;
         uint orderNumber;
         uint invoiceNumber;
-        uint totalOrderQuantity;
+        uint totalOrderQuantity; // it is multiple of 100
         uint priceFixForAllTransaction;
         RefineryBarDetails[] barDetails;
     }
@@ -240,7 +240,7 @@ contract ICO is AccessControl{
         refineryConnectDetail = refineryDetails[_refineryTracker.current()];
         refineryConnectDetail.orderDate = _orderDate;
         refineryConnectDetail.orderNumber = _orderNumber;
-        refineryConnectDetail.totalOrderQuantity = _totalOrderQuantity;
+        refineryConnectDetail.totalOrderQuantity = _totalOrderQuantity; // it is multiple of 100
         refineryConnectDetail.priceFixForAllTransaction = _priceFixForAllTransaction;
         refineryConnectDetail.invoiceNumber = _invoiceNumber;
         for (uint256 i = 0; i < _serial_number.length; i++) {
