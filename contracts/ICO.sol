@@ -28,8 +28,6 @@ contract ICO is AccessControl{
         uint maximumToken; // max token for sale
         uint soldToken; // sold token count
         bool isActive; // Current state of sale
-        bool isAmlActive; // Aml Active state
-        uint amlCheck; // aml check state
     }
 
     struct RefineryBarDetails {
@@ -56,7 +54,7 @@ contract ICO is AccessControl{
     uint public startDate; // year start date 1 jan 2024
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool aml, string message, string goldBarNumber, uint goldBarWeight);
-    event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isAmlActive, uint amlCheck);
+    event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc, address _refinery) {
         goldyOracle = _goldyOracle;
         currencyAddresses[Currency.EUROC] = _euroc;
@@ -88,7 +86,7 @@ contract ICO is AccessControl{
         _;
     }
 
-    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isAmlActive, uint _amlCheck) external onlyAdmins {
+    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken) external onlyAdmins {
 
         require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'EA'); // exceed maximum sale amount
         require(_refineryTracker.current() > 0, 'RE'); // refinery connect empty
@@ -101,44 +99,25 @@ contract ICO is AccessControl{
         sale.endDate = _endDate;
         sale.maximumToken = _maximumToken;
         sale.isActive = true;
-        sale.isAmlActive = _isAmlActive;
-        sale.amlCheck = _amlCheck;
         if (sale.startDate > (startDate + 365 days)) {
             _updateStartDate(); // sale creating after one year than reset startDate for next year cycle
         }
         require((_maximumToken + _getTotalSoldToken()) <= _getTotalGoldyFromRefinery(), 'NGB'); // not enough gold bar
         IERC20(sale.token).transferFrom(msg.sender, address(this), _maximumToken);
-        emit CreateSale(_saleTracker.current(), _token, _startDate, _endDate, _maximumToken, _isAmlActive, _amlCheck);
+        emit CreateSale(_saleTracker.current(), _token, _startDate, _endDate, _maximumToken);
         _saleTracker.increment();
 
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        if (sales[_saleTracker.current() - 1].isAmlActive) {
-            require(amount < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
-        }
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         string memory message = 'native function';
         _buyToken(amount, _currency, false, message);
     }
 
     function buyTokenPayable () external payable {
-        if (sales[_saleTracker.current() - 1].isAmlActive) {
-            require(msg.value < sales[_saleTracker.current() - 1].amlCheck, 'NA'); //  Not Allowed to trade more than amlCheck amount
-        }
         string memory message = 'native function';
         _buyToken(msg.value, Currency.ETH, false, message);
-    }
-
-    function verifiedBuyToken (string memory message, bytes calldata sig, uint amount, Currency _currency) external {
-        require(recoverStringFromRaw(message, sig) == msg.sender, 'IU'); // invalid user
-        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
-        _buyToken(amount, _currency, true, message);
-    }
-
-    function verifiedBuyTokenPayable (string memory message, bytes calldata sig) external payable {
-        require(recoverStringFromRaw(message, sig) == msg.sender, 'IU'); // invalid user
-        _buyToken(msg.value, Currency.ETH, true, message);
     }
 
     function _buyToken(uint amount, Currency _currency, bool aml, string memory message) internal {
@@ -186,22 +165,6 @@ contract ICO is AccessControl{
     function toggleSaleStatus() external onlyAdmins {
         Sale storage sale = sales[_saleTracker.current() - 1];
         sale.isActive = !sale.isActive;
-    }
-
-    function toggleAmlStatus() external onlyAdmins {
-        Sale storage sale = sales[_saleTracker.current() - 1];
-        sale.isAmlActive = !sale.isAmlActive;
-    }
-    function updateAmlCheck(uint _amlCheck) external onlyAdmins {
-        Sale storage sale = sales[_saleTracker.current() - 1];
-        sale.amlCheck = _amlCheck;
-    }
-
-    function verifyMessage(bytes32 _hashedMessage, uint8 _v, bytes32 _r, bytes32 _s, address user) public pure returns (bool) {
-        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 prefixedHashMessage = keccak256(abi.encodePacked(prefix, _hashedMessage));
-        address signer = ecrecover(prefixedHashMessage, _v, _r, _s);
-        return user == signer;
     }
 
     function updateMaxTokenSale(uint _maxEuroPerSaleYear) external onlyAdmins {
