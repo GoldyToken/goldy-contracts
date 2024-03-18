@@ -16,6 +16,11 @@ contract ICO is AccessControl{
         ETH  ,
         EUROC
     }
+    // kyc status
+    enum KycStatuses {
+        APPROVE ,
+        REJECT
+    }
     mapping (Currency => address) public currencyAddresses;
     Counters.Counter private _saleTracker; // sale tracker
     Counters.Counter private _refineryTracker; // refinery connect details tracker
@@ -48,8 +53,6 @@ contract ICO is AccessControl{
     }
     string private constant REFINERY_ROLE = 'Refinery';
     string private constant SUB_ADMIN_ROLE = 'SubAdmin';
-    string private constant APPROVE = "APPROVE";
-    string private constant REJECT = "REJECT";
     address[] public refineries;
     address[] public subAdmins;
 
@@ -60,6 +63,7 @@ contract ICO is AccessControl{
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool kyc, string goldBarNumber, uint goldBarWeight);
     event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isKycActive, uint kycCheck);
+    event KycAction (address indexed user, KycStatuses kycStatus, address actionBy, string message);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc, address _refinery) {
         goldyOracle = _goldyOracle;
         currencyAddresses[Currency.EUROC] = _euroc;
@@ -387,13 +391,18 @@ contract ICO is AccessControl{
         return _amount <= sale.kycCheck && kycStatus[msg.sender];
     }
 
-    function updateKycStatus(address _user, string memory message, bytes calldata sig) external {
-        require(keccak256(abi.encodePacked(message)) == keccak256(abi.encodePacked(APPROVE)), 'invalid action');
-        require(hasRole(DEFAULT_ADMIN_ROLE, recoverStringFromRaw(message, sig)), 'OO'); // only owner
-        if (keccak256(abi.encodePacked(message)) == keccak256(abi.encodePacked(APPROVE))) {
-            kycStatus[_user] = true;
-        } else if (keccak256(abi.encodePacked(message)) == keccak256(abi.encodePacked(REJECT))) {
-            kycStatus[_user] = false;
+    function updateKycStatus(address[] memory _users, KycStatuses _kycStatus, string[] memory message) external {
+        require(_users.length > 0 && _users.length == message.length, 'length mismatch');
+        if (KycStatuses.APPROVE == _kycStatus) {
+            for(uint i = 0; i < _users.length; i++) {
+                kycStatus[_users[i]] = true;
+                emit KycAction(_users[i], KycStatuses.APPROVE, msg.sender, message[i]);
+            }
+        } else if (KycStatuses.REJECT == _kycStatus) {
+            for(uint i = 0; i < _users.length; i++) {
+                kycStatus[_users[i]] = false;
+                emit KycAction(_users[i], KycStatuses.REJECT, msg.sender, message[i]);
+            }
         }
     }
 }
