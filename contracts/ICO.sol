@@ -33,7 +33,6 @@ contract ICO is AccessControl {
         uint soldToken; // sold token count
         bool isActive; // Current state of sale
         bool isKycActive; // kyc active
-        uint kycCheck; // kyc check in 18 decimals like for 1 = 1e18
     }
 
     struct RefineryBarDetails {
@@ -373,11 +372,6 @@ contract ICO is AccessControl {
     function toggleKycStatus() external onlyAdmins {
         Sale storage sale = sales[_saleTracker - 1];
         sale.isKycActive = !sale.isKycActive;
-    }
-
-    function updateKycCheck(uint _kycCheck) external onlyAdmins {
-        Sale storage sale = sales[_saleTracker - 1];
-        sale.kycCheck = _kycCheck;
     }
 
     function _isValidTx(uint _amount, Sale memory sale) internal view returns (bool) {
