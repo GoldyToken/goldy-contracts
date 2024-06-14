@@ -14,7 +14,7 @@ describe("ICO contract", function () {
         const usdcToken = await ethers.deployContract("GoldyToken", ['USDC Token', 'USDC']);
         const usdtToken = await ethers.deployContract("GoldyToken", ['USDT', 'USDT Token']);
         const eurocToken = await ethers.deployContract("GoldyToken", ['EUROC', 'EUROC Token']);
-        const goldyPriceOracle = await ethers.deployContract("GoldyPriceOracle", ["0x7b219F57a8e9C7303204Af681e9fA69d17ef626f", "0x44390589104C9164407A0E0562a9DBe6C24A0E05", "0x73D9c953DaaB1c829D01E1FC0bd92e28ECfB66DB", "0xAb5c49580294Aff77670F839ea425f5b78ab3Ae7", "0xAb5c49580294Aff77670F839ea425f5b78ab3Ae7", "0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e"]);
+        const goldyPriceOracle = await ethers.deployContract("GoldyPriceOracle", ["0xC5981F461d74c46eB4b0CF3f4Ec79f025573B0Ea", "0x1a81afB8146aeFfCFc5E50e8479e826E7D55b910", "0x91FAB41F5f3bE955963a986366edAcff1aaeaa83", "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E", "0xA2F78ab2355fe2f984D808B5CeE7FD0A93D5270E", "0x694AA1769357215DE4FAC081bf1f309aDC325306"]);
         const ico = await ethers.deployContract("ICO", [goldyPriceOracle.target, usdcToken.target, usdtToken.target, eurocToken.target, owner.address]);
 
         // Fixtures can return anything you consider useful for your tests
@@ -30,8 +30,7 @@ describe("ICO contract", function () {
         const startDate = Math.floor(currentTimestamp / 1000);
         const endDate = startDate + 3600;
         const maxToken = BigInt(1000 * 1e18);
-        const amlCheck = BigInt(100 * 1e18);
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, true, amlCheck)).to.be.revertedWith("RE");
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, true)).to.be.revertedWith("RE");
     });
 
     it("add refinery connect and create sale with extra token revert with error", async function () {
@@ -41,9 +40,8 @@ describe("ICO contract", function () {
         const startDate = Math.floor(currentTimestamp / 1000);
         const endDate = startDate + 3600;
         const maxToken = BigInt(10001 * 1e18);
-        const amlCheck = BigInt(100 * 1e18);
         await goldyToken.connect(owner).approve(ico.target, maxToken);
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, true, amlCheck)).to.be.revertedWith("NGB");
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, true)).to.be.revertedWith("NGB");
 
     });
 
@@ -54,10 +52,9 @@ describe("ICO contract", function () {
         const startDate = Math.floor(currentTimestamp / 1000);
         const endDate = startDate + 3600;
         const maxToken = BigInt(10000 * 1e18);
-        const amlCheck = BigInt(100 * 1e18);
         await goldyToken.connect(owner).approve(ico.target, maxToken);
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, true, amlCheck)).to.emit(ico, "CreateSale")
-            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, true, amlCheck);
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, true)).to.emit(ico, "CreateSale")
+            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, true)
 
     });
 
@@ -69,10 +66,9 @@ describe("ICO contract", function () {
         const startDate = block?.timestamp - 100;
         const endDate = startDate + 3600;
         const maxToken = BigInt(10000 * 1e18);
-        const amlCheck = BigInt(100 * 1e18);
         await goldyToken.connect(owner).approve(ico.target, maxToken);
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false, amlCheck)).to.emit(ico, "CreateSale")
-            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, false, amlCheck);
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false)).to.emit(ico, "CreateSale")
+            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, false);
         const totalUSDT = BigInt(10000) * await goldyPriceOracle.getGoldyUSDTPrice();
         await usdtToken.connect(owner).approve(ico.target, totalUSDT);
         await expect(ico.connect(owner).buyToken( totalUSDT, 1)).to.emit(ico, "BuyToken").withArgs(owner.address, 1, totalUSDT, BigInt(10000 * 1e18), false, "native function", "GOLDY-12355", "100");
@@ -86,10 +82,9 @@ describe("ICO contract", function () {
         const startDate = block?.timestamp - 100;
         const endDate = startDate + 3600;
         const maxToken = BigInt(10000 * 1e18);
-        const amlCheck = BigInt(100 * 1e18);
         await goldyToken.connect(owner).approve(ico.target, maxToken);
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false, amlCheck)).to.emit(ico, "CreateSale")
-            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, false, amlCheck);
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false)).to.emit(ico, "CreateSale")
+            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, false);
         const totalUSDT = BigInt(5000) * await goldyPriceOracle.getGoldyUSDTPrice();
         await usdtToken.connect(owner).approve(ico.target, totalUSDT);
         await expect(ico.connect(owner).buyToken( totalUSDT, 1)).to.emit(ico, "BuyToken").withArgs(owner.address, 1, totalUSDT, BigInt(5000 * 1e18), false, "native function", "GOLDY-12355", "100");
@@ -97,7 +92,7 @@ describe("ICO contract", function () {
 
         // second sale creating
         await goldyToken.connect(owner).approve(ico.target, maxToken);
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false, amlCheck)).to.be.revertedWith("NGB");
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false)).to.be.revertedWith("NGB");
     });
 
     it("add refinery connect and create sale and again create sale burn pending tokens and add refinery 3 bar details with 1oz each different bar serial purchase tokens token should attach with correct bar details", async function () {
@@ -108,10 +103,9 @@ describe("ICO contract", function () {
         const startDate = block?.timestamp - 100;
         const endDate = startDate + 3600;
         const maxToken = BigInt(10000 * 1e18);
-        const amlCheck = BigInt(100 * 1e18);
         await goldyToken.connect(owner).approve(ico.target, maxToken);
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false, amlCheck)).to.emit(ico, "CreateSale")
-            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, false, amlCheck);
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken, false)).to.emit(ico, "CreateSale")
+            .withArgs(0, goldyToken.target, startDate, endDate, maxToken, false);
         const totalUSDT = BigInt(5000) * await goldyPriceOracle.getGoldyUSDTPrice();
         await usdtToken.connect(owner).approve(ico.target, totalUSDT);
         await expect(ico.connect(owner).buyToken( totalUSDT, 1)).to.emit(ico, "BuyToken").withArgs(owner.address, 1, totalUSDT, BigInt(5000 * 1e18), false, "native function", "GOLDY-12355", "100");
@@ -120,8 +114,8 @@ describe("ICO contract", function () {
         // second sale creating
         await ico.connect(owner).addRefineryConnectDetails(Math.floor(new Date().getTime() / 1000), 12321, 100, 1000, 123343, ['GOLDY-12356', 'GOLDY-12357', 'GOLDY-12358'], [100, 50, 50]);
         await goldyToken.connect(owner).approve(ico.target, maxToken + BigInt(15000 * 1e18));
-        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken + BigInt(15000 * 1e18), false, amlCheck)).to.emit(ico, "CreateSale")
-            .withArgs(1, goldyToken.target, startDate, endDate, maxToken + BigInt(15000 * 1e18), false, amlCheck);
+        await expect(ico.connect(owner).createSale(goldyToken.target, startDate, endDate, maxToken + BigInt(15000 * 1e18), false)).to.emit(ico, "CreateSale")
+            .withArgs(1, goldyToken.target, startDate, endDate, maxToken + BigInt(15000 * 1e18));
         expect(await goldyToken.balanceOf(ico.target)).to.equal(maxToken + BigInt(15000 * 1e18));
 
 
