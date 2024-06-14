@@ -57,7 +57,7 @@ contract ICO is AccessControl {
     uint public startDate; // year start date 1 jan 2024
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool kyc, string goldBarNumber, uint goldBarWeight);
-    event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isKycActive, uint kycCheck);
+    event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isKycActive);
     event KycAction (address indexed user, KycStatuses kycStatus, address actionBy, string message);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc, address _refinery) {
         goldyOracle = _goldyOracle;
@@ -90,7 +90,7 @@ contract ICO is AccessControl {
         _;
     }
 
-    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isKycActive, uint _kycCheck) external onlyAdmins {
+    function createSale(address _token, uint _startDate, uint _endDate, uint _maximumToken, bool _isKycActive) external onlyAdmins {
 
         require(_saleValueExceedCheckForMaxTokenSale(_maximumToken), 'EA'); // exceed maximum sale amount
         require(_refineryTracker > 0, 'RE'); // refinery connect empty
@@ -104,13 +104,12 @@ contract ICO is AccessControl {
         sale.maximumToken = _maximumToken;
         sale.isActive = true;
         sale.isKycActive = _isKycActive;
-        sale.kycCheck = _kycCheck;
         if (sale.startDate > (startDate + 365 days)) {
             _updateStartDate(); // sale creating after one year than reset startDate for next year cycle
         }
         require((_maximumToken + _getTotalSoldToken()) <= _getTotalGoldyFromRefinery(), 'NGB'); // not enough gold bar
         IERC20(sale.token).transferFrom(msg.sender, address(this), _maximumToken);
-        emit CreateSale(_saleTracker, _token, _startDate, _endDate, _maximumToken, _isKycActive, _kycCheck);
+        emit CreateSale(_saleTracker, _token, _startDate, _endDate, _maximumToken, _isKycActive);
         _saleTracker++;
 
     }
@@ -118,13 +117,13 @@ contract ICO is AccessControl {
     function buyToken (uint amount, Currency _currency) external {
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         Sale storage sale = sales[_saleTracker - 1];
-        require(_isValidTx(amount, sale));
+        require(_isValidTx(sale));
         _buyToken(amount, _currency, sale.isKycActive);
     }
 
     function buyTokenPayable () external payable {
         Sale storage sale = sales[_saleTracker - 1];
-        require(_isValidTx(msg.value, sale));
+        require(_isValidTx(sale));
         _buyToken(msg.value, Currency.ETH, sale.isKycActive);
     }
 
@@ -374,11 +373,11 @@ contract ICO is AccessControl {
         sale.isKycActive = !sale.isKycActive;
     }
 
-    function _isValidTx(uint _amount, Sale memory sale) internal view returns (bool) {
+    function _isValidTx(Sale memory sale) internal view returns (bool) {
         if(!sale.isKycActive) {
             return true;
         }
-        return _amount <= sale.kycCheck && kycStatus[msg.sender];
+        return kycStatus[msg.sender];
     }
 
     function updateKycStatus(address[] memory _users, KycStatuses _kycStatus, string[] memory message) external onlyAdmins {
