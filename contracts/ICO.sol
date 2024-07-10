@@ -55,11 +55,13 @@ contract ICO is AccessControl {
     mapping (uint => RefineryConnectDetail) public refineryDetails; // refinery details against the active sale
     uint public maxEuroPerSaleYear; // for one year
     uint public startDate; // year start date 1 jan 2024
+    uint public fees; // platform fees
 
     event BuyToken (address indexed user, Currency currency, uint amount, uint goldyAmount, bool kyc, string goldBarNumber, uint goldBarWeight);
     event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isKycActive);
     event KycAction (address indexed user, KycStatuses kycStatus, address actionBy, string message);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc, address _refinery) {
+        fees = 5600; // 5.6% fess
         goldyOracle = _goldyOracle;
         currencyAddresses[Currency.EUROC] = _euroc;
         currencyAddresses[Currency.USDC] = _usdc;
@@ -115,16 +117,18 @@ contract ICO is AccessControl {
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
+        uint totalAmount = amount + ((amount * fees) / 10000);
+        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), totalAmount);
         Sale storage sale = sales[_saleTracker - 1];
         require(_isValidTx(sale));
         _buyToken(amount, _currency, sale.isKycActive);
     }
 
     function buyTokenPayable () external payable {
+        uint value = msg.value - ((msg.value * fees) / 10000);
         Sale storage sale = sales[_saleTracker - 1];
         require(_isValidTx(sale));
-        _buyToken(msg.value, Currency.ETH, sale.isKycActive);
+        _buyToken(value,  Currency.ETH, sale.isKycActive);
     }
 
     function _buyToken(uint amount, Currency _currency, bool kyc) internal {
@@ -393,5 +397,10 @@ contract ICO is AccessControl {
                 emit KycAction(_users[i], KycStatuses.REJECT, msg.sender, message[i]);
             }
         }
+    }
+
+    function updateFees(uint _fees) external onlyOwner {
+        require(_fees > 0, 'IV'); // Invalid value
+        fees = _fees;
     }
 }
