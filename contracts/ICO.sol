@@ -117,7 +117,7 @@ contract ICO is AccessControl {
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        uint totalAmount = amount + ((amount * fees) / 10000);
+        uint totalAmount = amount - ((amount * fees) / 10000);
         IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), totalAmount);
         Sale storage sale = sales[_saleTracker - 1];
         require(_isValidTx(sale));
