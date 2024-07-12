@@ -139,13 +139,13 @@ contract ICO is AccessControl {
         IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
         uint transferAmount;
         if (Currency.USDC == _currency) {
-            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDCPrice(), amount);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDCPrice(), amount, 6, 18);
         } else if (Currency.USDT == _currency) {
-            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDTPrice(), amount);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDTPrice(), amount, 6, 18);
         } else if (Currency.EUROC == _currency) {
-            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), amount);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), amount, 6, 18);
         } else if (Currency.ETH == _currency) {
-            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount, 18, 18);
         }
         RefineryBarDetails memory barDetails = _getActiveRefineryBarDetails(transferAmount);
         sale.soldToken += transferAmount;
@@ -154,8 +154,11 @@ contract ICO is AccessControl {
         emit BuyToken(msg.sender, _currency, amount, transferAmount, kyc, barDetails.serial_number, barDetails.bar_weight);
     }
 
-    function _calculateTransferAmount(uint price, uint amount) internal pure returns (uint) {
-        return (1e18 * amount) / price;
+    function _calculateTransferAmount(uint price, uint amount, uint actualDecimal, uint adjustedDecimal) internal pure returns (uint) {
+        // Adjust the amount to the desired number of decimals
+        uint adjustedAmount = amount * (10 ** (adjustedDecimal - actualDecimal));
+        // Calculate the transfer amount
+        return (1e18 * adjustedAmount) / price;
     }
 
     function getCurrentSaleDetails() external view returns (Sale memory) {
@@ -239,7 +242,7 @@ contract ICO is AccessControl {
             }
         }
         sum += _tokenValue;
-        uint maxGoldyPerSaleYear = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), maxEuroPerSaleYear);
+        uint maxGoldyPerSaleYear = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), maxEuroPerSaleYear, 18, 18);
         return sum <= maxGoldyPerSaleYear;
     }
 
