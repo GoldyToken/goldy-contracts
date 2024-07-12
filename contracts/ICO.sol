@@ -118,10 +118,10 @@ contract ICO is AccessControl {
 
     function buyToken (uint amount, Currency _currency) external {
         uint totalAmount = amount - ((amount * fees) / 10000);
-        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), totalAmount);
+        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
         Sale storage sale = sales[_saleTracker - 1];
         require(_isValidTx(sale));
-        _buyToken(amount, _currency, sale.isKycActive);
+        _buyToken(totalAmount, _currency, sale.isKycActive);
     }
 
     function buyTokenPayable () external payable {
