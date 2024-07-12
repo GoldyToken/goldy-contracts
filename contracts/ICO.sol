@@ -155,8 +155,14 @@ contract ICO is AccessControl {
     }
 
     function _calculateTransferAmount(uint price, uint amount, uint actualDecimal, uint adjustedDecimal) internal pure returns (uint) {
-        // Adjust the amount to the desired number of decimals
-        uint adjustedAmount = amount * (10 ** (adjustedDecimal - actualDecimal));
+        uint adjustedAmount;
+        if (actualDecimal > adjustedDecimal) {
+            // If actual decimals are more than the adjusted decimals, divide the amount
+            adjustedAmount = amount / (10 ** (actualDecimal - adjustedDecimal));
+        } else {
+            // If actual decimals are less than or equal to the adjusted decimals, multiply the amount
+            adjustedAmount = amount * (10 ** (adjustedDecimal - actualDecimal));
+        }
         // Calculate the transfer amount
         return (1e18 * adjustedAmount) / price;
     }
