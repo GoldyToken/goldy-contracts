@@ -61,7 +61,7 @@ contract ICO is AccessControl {
     event CreateSale (uint indexed id, address token, uint startDate, uint endDate, uint maximumToken, bool isKycActive);
     event KycAction (address indexed user, KycStatuses kycStatus, address actionBy, string message);
     constructor(address _goldyOracle, address _usdc, address _usdt, address _euroc, address _refinery) {
-        fees = 5600; // 5.6% fess
+        fees = 560; // 5.6% fess
         goldyOracle = _goldyOracle;
         currencyAddresses[Currency.EUROC] = _euroc;
         currencyAddresses[Currency.USDC] = _usdc;
