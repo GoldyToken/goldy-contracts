@@ -17,12 +17,12 @@ dotenv.config();
 const config: HardhatUserConfig = {
   solidity: "0.8.19",
   networks: {
-    // hardhat: {
-    //   forking: {
-    //     url: "https://eth-goerli.g.alchemy.com/v2/Eay-vafyWDrHIgkMn7e8lFB7y7TGujah",
-    //     blockNumber: 10324105,
-    //   },
-    // },
+    hardhat: {
+      forking: {
+        url: "https://eth-mainnet.g.alchemy.com/v2/zPXme4vh-8IprCBLViHKa2Q-ByCLh-6o",
+        blockNumber: 20297249,
+      },
+    },
     GOERLI: {
       url: process.env.GOERLI_URL || "",
       accounts:

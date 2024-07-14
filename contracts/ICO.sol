@@ -2,8 +2,10 @@
 pragma solidity ^0.8.0;
 import "./IGoldyPriceOracle.sol";
 import "./IGoldyToken.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "hardhat/console.sol";
 
 
 contract ICO is AccessControl {
@@ -110,18 +112,18 @@ contract ICO is AccessControl {
             _updateStartDate(); // sale creating after one year than reset startDate for next year cycle
         }
         require((_maximumToken + _getTotalSoldToken()) <= _getTotalGoldyFromRefinery(), 'NGB'); // not enough gold bar
-        IERC20(sale.token).transferFrom(msg.sender, address(this), _maximumToken);
+        SafeERC20.safeTransferFrom(IERC20(sale.token), msg.sender, address(this), _maximumToken);
         emit CreateSale(_saleTracker, _token, _startDate, _endDate, _maximumToken, _isKycActive);
         _saleTracker++;
 
     }
 
     function buyToken (uint amount, Currency _currency) external {
-        uint totalAmount = amount - ((amount * fees) / 10000);
-        IERC20(currencyAddresses[_currency]).transferFrom(msg.sender, address(this), amount);
+        uint totalAmount = amount + ((amount * fees) / 10000);
+        SafeERC20.safeTransferFrom(IERC20(currencyAddresses[_currency]), msg.sender, address(this), totalAmount);
         Sale storage sale = sales[_saleTracker - 1];
         require(_isValidTx(sale));
-        _buyToken(totalAmount, _currency, sale.isKycActive);
+        _buyToken(amount, _currency, sale.isKycActive);
     }
 
     function buyTokenPayable () external payable {
@@ -150,7 +152,7 @@ contract ICO is AccessControl {
         RefineryBarDetails memory barDetails = _getActiveRefineryBarDetails(transferAmount);
         sale.soldToken += transferAmount;
         require(sale.soldToken <= sale.maximumToken, 'G3'); // maximum token sale reach
-        IERC20(sale.token).transfer(msg.sender, transferAmount);
+        SafeERC20.safeTransfer(IERC20(sale.token), msg.sender, transferAmount);
         emit BuyToken(msg.sender, _currency, amount, transferAmount, kyc, barDetails.serial_number, barDetails.bar_weight);
     }
 
@@ -178,7 +180,7 @@ contract ICO is AccessControl {
     function upgradeMaxToken(uint _maxToken) external onlyAdmins {
         require(_saleValueExceedCheckForMaxTokenSale(_maxToken), 'EA'); // exceed maximum sale amount
         Sale storage sale = sales[_saleTracker - 1];
-        IERC20(sale.token).transferFrom(msg.sender, address(this), _maxToken);
+        SafeERC20.safeTransferFrom(IERC20(sale.token), msg.sender, address(this), _maxToken);
         sale.maximumToken += _maxToken;
     }
 
@@ -288,11 +290,20 @@ contract ICO is AccessControl {
     }
 
     function withdrawAll() public onlyOwner {
-        IERC20(currencyAddresses[Currency.EUROC]).transfer(msg.sender, IERC20(currencyAddresses[Currency.EUROC]).balanceOf(address(this)));
-        IERC20(currencyAddresses[Currency.USDC]).transfer(msg.sender, IERC20(currencyAddresses[Currency.USDC]).balanceOf(address(this)));
-        IERC20(currencyAddresses[Currency.USDT]).transfer(msg.sender, IERC20(currencyAddresses[Currency.USDT]).balanceOf(address(this)));
+        SafeERC20.safeTransfer(IERC20(currencyAddresses[Currency.EUROC]), msg.sender, IERC20(currencyAddresses[Currency.EUROC]).balanceOf(address(this)));
+        SafeERC20.safeTransfer(IERC20(currencyAddresses[Currency.USDC]), msg.sender, IERC20(currencyAddresses[Currency.USDC]).balanceOf(address(this)));
+        SafeERC20.safeTransfer(IERC20(currencyAddresses[Currency.USDT]), msg.sender, IERC20(currencyAddresses[Currency.USDT]).balanceOf(address(this)));
         payable(msg.sender).transfer(address(this).balance);
     }
+
+    function withdrawToken(address _tokenAddress) public onlyOwner {
+        if (_tokenAddress == address(0)) {
+            payable(msg.sender).transfer(address(this).balance);
+        } else {
+            SafeERC20.safeTransfer(IERC20(_tokenAddress), msg.sender, IERC20(_tokenAddress).balanceOf(address(this)));
+        }
+    }
+
 
     function _burnUnsoldToken(address token, uint256 amount) internal {
         if(amount > 0) {
