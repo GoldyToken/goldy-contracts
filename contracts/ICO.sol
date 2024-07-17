@@ -4,6 +4,7 @@ import "./IGoldyPriceOracle.sol";
 import "./IGoldyToken.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "hardhat/console.sol";
 
@@ -141,11 +142,11 @@ contract ICO is AccessControl {
         IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
         uint transferAmount;
         if (Currency.USDC == _currency) {
-            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDCPrice(), amount, 6, 18);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDCPrice(), amount, IERC20Metadata(currencyAddresses[Currency.USDC]).decimals(), 18);
         } else if (Currency.USDT == _currency) {
-            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDTPrice(), amount, 6, 18);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyUSDTPrice(), amount, IERC20Metadata(currencyAddresses[Currency.USDT]).decimals(), 18);
         } else if (Currency.EUROC == _currency) {
-            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), amount, 6, 18);
+            transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyEuroPrice(), amount, IERC20Metadata(currencyAddresses[Currency.EUROC]).decimals(), 18);
         } else if (Currency.ETH == _currency) {
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount, 18, 18);
         }
