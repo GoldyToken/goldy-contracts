@@ -3,9 +3,10 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 
-contract Vesting {
+contract Vesting is Ownable {
     using Counters for Counters.Counter;
 
     struct VestingPool {
@@ -24,22 +25,15 @@ contract Vesting {
     mapping (address => uint[]) public vestingIds;
     uint public totalVestedTokenAmount;
     bool public isVestingActive;
-    address public owner;
 
     constructor() {
-        owner = msg.sender;
         isVestingActive = true;
     }
 
     event LockToken (uint32 period, uint32 cliff, uint16 periodBP, uint16 firstReleaseInBP, uint amount, address user, address token);
-    modifier onlyOwner(uint vestingPoolId) {
+    modifier onlyVestingOwner(uint vestingPoolId) {
         VestingPool memory vestingPool = vestingPools[vestingPoolId];
         require(msg.sender == vestingPool.user, 'VS:100'); //Vesting: only owner is allowed to withdraw
-        _;
-    }
-
-    modifier onlyAdmin() {
-        require(msg.sender == owner, 'Only Admin');
         _;
     }
 
@@ -125,12 +119,12 @@ contract Vesting {
         }
     }
 
-    function withdraw(uint vestingPoolId) public onlyOwner(vestingPoolId) {
+    function withdraw(uint vestingPoolId) public onlyVestingOwner(vestingPoolId) {
         _withdraw(vestingPoolId);
     }
 
     // Fallback
-    function withdrawWithSpecificAmount(uint vestingPoolId, uint amount) public onlyOwner(vestingPoolId) {
+    function withdrawWithSpecificAmount(uint vestingPoolId, uint amount) public onlyVestingOwner(vestingPoolId) {
         (, uint availableAmountInToken) = availableToWithdraw(vestingPools[vestingPoolId]);
 
         require(amount <= availableAmountInToken, 'Vesting: wut?');
@@ -147,7 +141,7 @@ contract Vesting {
         return vestingIds[_user];
     }
 
-    function toggleVestingStatus() external onlyAdmin {
+    function toggleVestingStatus() external onlyOwner {
         isVestingActive = !isVestingActive;
     }
 
