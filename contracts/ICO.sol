@@ -20,7 +20,7 @@ contract ICO is AccessControl {
         APPROVE ,
         REJECT
     }
-    mapping (Currency => address) public currencyAddresses;
+    mapping (Currency => address) private currencyAddresses;
     uint public _saleTracker; // sale tracker
     uint public _refineryTracker; // refinery connect details tracker
     address public goldyOracle;
@@ -34,6 +34,7 @@ contract ICO is AccessControl {
         uint soldToken; // sold token count
         bool isActive; // Current state of sale
         bool isKycActive; // kyc active
+        uint kycLimit; // (Euro Amount) after kyc limit it would necessary to have kyc first
     }
 
     struct RefineryBarDetails {
@@ -120,19 +121,15 @@ contract ICO is AccessControl {
     function buyToken (uint amount, Currency _currency) external {
         uint totalAmount = amount + ((amount * fees) / 10000);
         SafeERC20.safeTransferFrom(IERC20(currencyAddresses[_currency]), msg.sender, address(this), totalAmount);
-        Sale storage sale = sales[_saleTracker - 1];
-        require(_isValidTx(sale));
-        _buyToken(amount, _currency, sale.isKycActive);
+        _buyToken(amount, _currency);
     }
 
     function buyTokenPayable () external payable {
         uint value = msg.value - ((msg.value * fees) / 10000);
-        Sale storage sale = sales[_saleTracker - 1];
-        require(_isValidTx(sale));
-        _buyToken(value,  Currency.ETH, sale.isKycActive);
+        _buyToken(value,  Currency.ETH);
     }
 
-    function _buyToken(uint amount, Currency _currency, bool kyc) internal {
+    function _buyToken(uint amount, Currency _currency) internal {
         require(amount > 0 && _saleTracker > 0, 'G1'); // either amount is less than 0 or sale not started
         Sale storage sale = sales[_saleTracker - 1];
         require(block.timestamp >= sale.startDate && block.timestamp <= sale.endDate, 'G2'); // either sale not started or ended
@@ -148,11 +145,12 @@ contract ICO is AccessControl {
         } else if (Currency.ETH == _currency) {
             transferAmount = _calculateTransferAmount(goldyPriceOracle.getGoldyETHPrice(), amount, 18, 18);
         }
+        require(_isValidTx(sale, transferAmount), 'ITx'); // invalid transaction
         RefineryBarDetails memory barDetails = _getActiveRefineryBarDetails(transferAmount);
         sale.soldToken += transferAmount;
         require(sale.soldToken <= sale.maximumToken, 'G3'); // maximum token sale reach
         SafeERC20.safeTransfer(IERC20(sale.token), msg.sender, transferAmount);
-        emit BuyToken(msg.sender, _currency, amount, transferAmount, kyc, barDetails.serial_number, barDetails.bar_weight);
+        emit BuyToken(msg.sender, _currency, amount, transferAmount, sale.isKycActive, barDetails.serial_number, barDetails.bar_weight);
     }
 
     function _calculateTransferAmount(uint price, uint amount, uint actualDecimal, uint adjustedDecimal) internal pure returns (uint) {
@@ -219,7 +217,7 @@ contract ICO is AccessControl {
     }
 
     function addRefineryConnectDetails(uint _orderDate, uint _orderNumber, uint _totalOrderQuantity, uint _priceFixForAllTransaction, uint _invoiceNumber, string[] memory _serial_number, uint[] memory _bar_weights) external onlyRefinery {
-        require(_serial_number.length > 0 && _bar_weights.length > 0, 'invalid input');
+        require(_serial_number.length > 0 && _bar_weights.length > 0, 'IV');
         RefineryConnectDetail storage refineryConnectDetail;
         refineryConnectDetail = refineryDetails[_refineryTracker];
         refineryConnectDetail.orderDate = _orderDate;
@@ -331,16 +329,21 @@ contract ICO is AccessControl {
         startDate = block.timestamp;
     }
 
-    function toggleKycStatus() external onlyAdmins {
+    function updateKycStatus(bool _isKycActive, uint _kycLimit) external onlyAdmins {
         Sale storage sale = sales[_saleTracker - 1];
-        sale.isKycActive = !sale.isKycActive;
+        sale.isKycActive = _isKycActive;
+        sale.kycLimit =_kycLimit;
     }
 
-    function _isValidTx(Sale memory sale) internal view returns (bool) {
+    function _isValidTx(Sale memory sale, uint _goldyAmount) internal view returns (bool) {
         if(!sale.isKycActive) {
             return true;
         }
-        return kycStatus[msg.sender];
+        IGoldyPriceOracle goldyPriceOracle = IGoldyPriceOracle(goldyOracle);
+        if ((_goldyAmount * goldyPriceOracle.getGoldyEuroPrice()) / 1e18 > (sale.kycLimit * 1e18) &&  !kycStatus[msg.sender]) {
+            return false;
+        }
+        return true;
     }
 
     function updateKycStatus(address[] memory _users, KycStatuses _kycStatus, string[] memory message) external onlyAdmins {
