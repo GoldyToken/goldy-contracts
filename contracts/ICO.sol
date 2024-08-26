@@ -329,7 +329,7 @@ contract ICO is AccessControl {
         startDate = block.timestamp;
     }
 
-    function updateKycStatus(bool _isKycActive, uint _kycLimit) external onlyAdmins {
+    function updateKycConfig(bool _isKycActive, uint _kycLimit) external onlyAdmins {
         Sale storage sale = sales[_saleTracker - 1];
         sale.isKycActive = _isKycActive;
         sale.kycLimit =_kycLimit;
